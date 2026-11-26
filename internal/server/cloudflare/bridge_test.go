@@ -69,7 +69,7 @@ func TestBridgeSubscribeAndCompleteAnswer(t *testing.T) {
 			}
 			_ = json.NewEncoder(w).Encode(TracksResponse{
 				SessionDescription: &SessionDescription{Type:"offer", SDP:"v=0\r\n"},
-				Tracks: []TrackResult{{Track:Track{Location:"remote", SessionID:"publisher-session", TrackName:"screen-video"}}},
+				Tracks: []TrackResult{{Track:Track{Location:"remote", MID:"0", SessionID:"publisher-session", TrackName:"screen-video"}}},
 			})
 		case "/v1/apps/test/sessions/viewer-session/renegotiate":
 			var body struct { SessionDescription SessionDescription `json:"sessionDescription"` }
