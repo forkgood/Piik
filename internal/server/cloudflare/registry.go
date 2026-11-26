@@ -178,3 +178,11 @@ func validChannelIDs(values []int) bool {
 	}
 	return true
 }
+
+
+// RetireAll removes every registered session and returns immutable cleanup
+// snapshots. It is used during process shutdown when individual disconnect
+// callbacks intentionally skip room mutations.
+func (r *Registry) RetireAll() []SessionResource {
+	return r.retire(func(SessionResource) bool { return true })
+}
