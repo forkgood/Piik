@@ -5,7 +5,7 @@ import type { CloudflareSfuServerMessage } from "../src/shared/protocol";
 const reply: CloudflareSfuServerMessage = {
   type: "cloudflare-sfu",
   kind: "published",
-  publicationGeneration: "share_generation_1",
+  shareGeneration: "share_generation_1",
   connectionId: "connection_123456",
   sessionId: "cloudflare_session_123",
   description: { type: "answer", sdp: "v=0" },
