@@ -133,6 +133,7 @@ type SfuConfigMessage struct {
 	Revision              Int    `json:"revision"`
 	PublicationGeneration string `json:"publicationGeneration"`
 	ConnectionID          string `json:"connectionId"`
+	CloudflareSfu         bool   `json:"cloudflareSfu,omitempty"`
 }
 
 // QualitySettingsMessage broadcasts the host's quality settings.
