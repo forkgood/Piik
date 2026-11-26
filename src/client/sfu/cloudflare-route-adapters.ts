@@ -60,6 +60,8 @@ export class CloudflareSfuPublisherTransport {
         this.config.publicationGeneration === config.publicationGeneration) this.config = config;
   }
 
+  acceptSignal(_message: import("../../shared/protocol").SfuSignalMessage): Promise<void> { return Promise.resolve(); }
+
   async activate(stream: MediaStream | null, profile: QualityProfile, _codec?: BrowserVideoCodec): Promise<boolean> {
     if (!this.config || this.pc || this.closed || !stream) return false;
     const sourceVideo = stream.getVideoTracks()[0];
