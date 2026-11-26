@@ -442,7 +442,7 @@ export type CloudflareSfuTrack = z.infer<typeof cloudflareSfuTrackSchema>;
 const cloudflareSfuClientMessageSchema = z.object({
   type: z.literal("cloudflare-sfu"),
   kind: z.enum(["publish", "subscribe", "complete"]),
-  publicationGeneration: opaqueIdSchema,
+  shareGeneration: opaqueIdSchema,
   connectionId: opaqueIdSchema,
   description: sessionDescriptionSchema.optional(),
   tracks: z.array(cloudflareSfuTrackSchema).min(1).max(4).optional(),
@@ -458,7 +458,7 @@ export type CloudflareSfuClientMessage = z.infer<typeof cloudflareSfuClientMessa
 const cloudflareSfuServerMessageSchema = z.object({
   type: z.literal("cloudflare-sfu"),
   kind: z.enum(["published", "subscribed", "completed"]),
-  publicationGeneration: opaqueIdSchema,
+  shareGeneration: opaqueIdSchema,
   connectionId: opaqueIdSchema,
   sessionId: opaqueIdSchema.optional(),
   description: sessionDescriptionSchema.optional(),
@@ -472,7 +472,7 @@ export type CloudflareSfuServerMessage = z.infer<typeof cloudflareSfuServerMessa
 const sfuSignalMessageSchema = z.object({
   type: z.literal("sfu-signal"),
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-  publicationGeneration: opaqueIdSchema,
+  shareGeneration: opaqueIdSchema,
   connectionId: opaqueIdSchema,
   kind: z.enum(["subscribe", "description", "candidate", "media", "layers"]),
   description: sessionDescriptionSchema.optional(),
@@ -884,7 +884,7 @@ export const senderQualityEvidenceMessageSchema = z
 export const sfuPublisherQualityEvidenceMessageSchema = z
   .object({
     type: z.literal("sfu-publisher-quality-evidence"),
-    publicationGeneration: opaqueIdSchema,
+    shareGeneration: opaqueIdSchema,
     routeRevision: mediaRouteRevisionSchema,
     state: z.enum(["unknown", "healthy", "degraded"]),
     sampleTimestampMs: z
@@ -1275,7 +1275,7 @@ export const serverMessageSchema = z.union([
     .object({
       type: z.literal("sfu-config"),
       revision: mediaRouteRevisionSchema,
-      publicationGeneration: opaqueIdSchema,
+      shareGeneration: opaqueIdSchema,
       connectionId: opaqueIdSchema,
     })
     .strict(),
