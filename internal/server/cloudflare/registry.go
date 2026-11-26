@@ -25,7 +25,9 @@ func (o Owner) valid() bool {
 type SessionResource struct {
 	SessionID string
 	Owner     Owner
+	ConnectionID string
 	MIDs      []string
+	TrackNames []string
 	ChannelIDs []int
 }
 
@@ -163,6 +165,7 @@ func cloneStrings(values []string) []string {
 
 func cloneResource(resource SessionResource) SessionResource {
 	resource.MIDs = cloneStrings(resource.MIDs)
+	resource.TrackNames = cloneStrings(resource.TrackNames)
 	resource.ChannelIDs = cloneInts(resource.ChannelIDs)
 	return resource
 }
@@ -185,4 +188,67 @@ func validChannelIDs(values []int) bool {
 // callbacks intentionally skip room mutations.
 func (r *Registry) RetireAll() []SessionResource {
 	return r.retire(func(SessionResource) bool { return true })
+}
+
+
+// RegisterPublisherTracks records the Host's Cloudflare track names and browser
+// connection fence alongside the endpoint-local MIDs.
+func (r *Registry) RegisterPublisherTracks(owner Owner, connectionID, sessionID string, tracks []TrackResult) error {
+	if !owner.valid() || owner.Role != "host" || connectionID == "" || sessionID == "" || len(tracks) == 0 {
+		return errors.New("invalid Cloudflare publisher track ownership")
+	}
+	mids, names := make([]string, 0, len(tracks)), make([]string, 0, len(tracks))
+	seenMID, seenName := map[string]bool{}, map[string]bool{}
+	for _, track := range tracks {
+		if track.Location != "local" || track.MID == "" || track.TrackName == "" || seenMID[track.MID] || seenName[track.TrackName] {
+			return errors.New("invalid Cloudflare publisher track result")
+		}
+		seenMID[track.MID], seenName[track.TrackName] = true, true
+		mids, names = append(mids, track.MID), append(names, track.TrackName)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := publicationKey(owner.RoomID, owner.ShareGeneration)
+	if _, exists := r.publishers[key]; exists { return errors.New("Cloudflare publisher already exists for this share generation") }
+	if _, exists := r.sessions[sessionID]; exists { return errors.New("Cloudflare session is already registered") }
+	r.sessions[sessionID] = SessionResource{SessionID: sessionID, Owner: owner, ConnectionID: connectionID, MIDs: mids, TrackNames: names}
+	r.publishers[key] = sessionID
+	return nil
+}
+
+// RegisterSubscriberTracks binds the Viewer session to the exact publisher
+// and preserves the track-name mapping for diagnostics and later operations.
+func (r *Registry) RegisterSubscriberTracks(owner Owner, connectionID, sessionID, publisherSessionID string, tracks []TrackResult) error {
+	if !owner.valid() || owner.Role != "viewer" || connectionID == "" || sessionID == "" || publisherSessionID == "" || len(tracks) == 0 {
+		return errors.New("invalid Cloudflare subscriber track ownership")
+	}
+	mids, names := make([]string, 0, len(tracks)), make([]string, 0, len(tracks))
+	seenMID, seenName := map[string]bool{}, map[string]bool{}
+	for _, track := range tracks {
+		if track.Location != "remote" || track.SessionID != publisherSessionID || track.MID == "" || track.TrackName == "" || seenMID[track.MID] || seenName[track.TrackName] {
+			return errors.New("invalid Cloudflare subscriber track result")
+		}
+		seenMID[track.MID], seenName[track.TrackName] = true, true
+		mids, names = append(mids, track.MID), append(names, track.TrackName)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := publicationKey(owner.RoomID, owner.ShareGeneration)
+	if r.publishers[key] != publisherSessionID { return errors.New("Cloudflare publisher does not belong to this room share") }
+	if _, exists := r.sessions[sessionID]; exists { return errors.New("Cloudflare session is already registered") }
+	r.sessions[sessionID] = SessionResource{SessionID: sessionID, Owner: owner, ConnectionID: connectionID, MIDs: mids, TrackNames: names}
+	return nil
+}
+
+// SessionForOwner resolves a Cloudflare endpoint only for the exact signaling
+// owner and client connection fence.
+func (r *Registry) SessionForOwner(owner Owner, connectionID string) (SessionResource, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, resource := range r.sessions {
+		if resource.Owner == owner && resource.ConnectionID == connectionID {
+			return cloneResource(resource), true
+		}
+	}
+	return SessionResource{}, false
 }
