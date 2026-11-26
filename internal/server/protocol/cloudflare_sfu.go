@@ -11,7 +11,7 @@ type CloudflareSFUTrack struct {
 type CloudflareSFUMessage struct {
 	Type string `json:"type"`
 	Kind string `json:"kind"`
-	PublicationGeneration string `json:"publicationGeneration"`
+	ShareGeneration string `json:"shareGeneration"`
 	ConnectionID string `json:"connectionId"`
 	Description *SessionDescription `json:"description,omitempty"`
 	Tracks []CloudflareSFUTrack `json:"tracks,omitempty"`
@@ -23,9 +23,9 @@ func decodeCloudflareSFU(data []byte) (ClientMessage, error) {
 	var message CloudflareSFUMessage
 	present, err := decodeObject(data, &message)
 	if err != nil { return nil, err }
-	if err := present.require("type", "kind", "publicationGeneration", "connectionId"); err != nil { return nil, err }
+	if err := present.require("type", "kind", "shareGeneration", "connectionId"); err != nil { return nil, err }
 	if err := present.optional("description", "tracks"); err != nil { return nil, err }
-	if message.Type != "cloudflare-sfu" || !ValidOpaqueID(message.PublicationGeneration) || !ValidOpaqueID(message.ConnectionID) {
+	if message.Type != "cloudflare-sfu" || !ValidOpaqueID(message.ShareGeneration) || !ValidOpaqueID(message.ConnectionID) {
 		return nil, errors.New("invalid Cloudflare SFU fence")
 	}
 	switch message.Kind {
@@ -54,7 +54,7 @@ func decodeCloudflareSFU(data []byte) (ClientMessage, error) {
 type CloudflareSFUServerMessage struct {
 	Type string `json:"type"`
 	Kind string `json:"kind"`
-	PublicationGeneration string `json:"publicationGeneration"`
+	ShareGeneration string `json:"shareGeneration"`
 	ConnectionID string `json:"connectionId"`
 	SessionID string `json:"sessionId,omitempty"`
 	Description *SessionDescription `json:"description,omitempty"`
@@ -67,9 +67,9 @@ func decodeCloudflareSFUServer(data []byte) (ServerMessage, error) {
 	var message CloudflareSFUServerMessage
 	present, err := decodeObject(data, &message)
 	if err != nil { return nil, err }
-	if err := present.require("type", "kind", "publicationGeneration", "connectionId"); err != nil { return nil, err }
+	if err := present.require("type", "kind", "shareGeneration", "connectionId"); err != nil { return nil, err }
 	if err := present.optional("sessionId", "description", "tracks"); err != nil { return nil, err }
-	if message.Type != "cloudflare-sfu" || !ValidOpaqueID(message.PublicationGeneration) || !ValidOpaqueID(message.ConnectionID) {
+	if message.Type != "cloudflare-sfu" || !ValidOpaqueID(message.ShareGeneration) || !ValidOpaqueID(message.ConnectionID) {
 		return nil, errors.New("invalid Cloudflare SFU response fence")
 	}
 	switch message.Kind {
