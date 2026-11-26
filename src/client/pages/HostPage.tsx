@@ -156,6 +156,7 @@ import {
   type QualitySettings,
 } from "../media/quality";
 import { HostSfuRoute } from "../media/host-sfu-route";
+import { CloudflareSfuReplyBroker } from "../sfu/cloudflare-session";
 import { relayPhysicalCapacity } from "../media/relay-capability";
 import { BrowserEncodingPool } from "../media/browser-encoding-pool";
 import {
@@ -653,6 +654,7 @@ export function HostPage({
   const sharingPauseOperationRef = useRef<object | null>(null);
   const retiringStreamRef = useRef<MediaStream | null>(null);
   const hostSfuRouteRef = useRef<HostSfuRoute | null>(null);
+  const cloudflareSfuBrokerRef = useRef(new CloudflareSfuReplyBroker());
   const [nativeConnection] = useState(() => new NativeClientConnection(connectNativeClient, handleNativeClientClosed));
   const nativeShareGenerationRef = useRef<string | null>(null);
   const serverShareGenerationRef = useRef<string | null>(null);
@@ -2691,6 +2693,10 @@ export function HostPage({
     }
     if (message.type === "viewer-quality-evidence") {
       acceptViewerQualityEvidence(message);
+      return;
+    }
+    if (message.type === "cloudflare-sfu") {
+      cloudflareSfuBrokerRef.current.accept(message);
       return;
     }
     if (message.type === "sfu-config") {
