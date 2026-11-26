@@ -26,6 +26,7 @@ type SessionResource struct {
 	SessionID string
 	Owner     Owner
 	MIDs      []string
+	ChannelIDs []int
 }
 
 // Registry binds Cloudflare sessions to Piik room/share/participant authority.
@@ -51,7 +52,12 @@ func publicationKey(roomID, generation string) string {
 // exact current share generation. A second publisher for the same generation
 // is rejected rather than silently replacing the first.
 func (r *Registry) RegisterPublisher(owner Owner, sessionID string, mids []string) error {
-	if !owner.valid() || owner.Role != "host" || sessionID == "" || len(mids) == 0 {
+	return r.RegisterPublisherResources(owner, sessionID, mids, nil)
+}
+
+// RegisterPublisherResources binds all exact Cloudflare resources allocated on the Host endpoint.
+func (r *Registry) RegisterPublisherResources(owner Owner, sessionID string, mids []string, channelIDs []int) error {
+	if !owner.valid() || owner.Role != "host" || sessionID == "" || len(mids) == 0 || !validChannelIDs(channelIDs) {
 		return errors.New("invalid Cloudflare publisher ownership")
 	}
 	r.mu.Lock()
@@ -63,7 +69,7 @@ func (r *Registry) RegisterPublisher(owner Owner, sessionID string, mids []strin
 	if _, exists := r.sessions[sessionID]; exists {
 		return errors.New("Cloudflare session is already registered")
 	}
-	r.sessions[sessionID] = SessionResource{SessionID: sessionID, Owner: owner, MIDs: cloneStrings(mids)}
+	r.sessions[sessionID] = SessionResource{SessionID: sessionID, Owner: owner, MIDs: cloneStrings(mids), ChannelIDs: cloneInts(channelIDs)}
 	r.publishers[key] = sessionID
 	return nil
 }
@@ -72,7 +78,12 @@ func (r *Registry) RegisterPublisher(owner Owner, sessionID string, mids []strin
 // consumes. The publisher must already be registered and the subscriber's
 // share generation must match exactly.
 func (r *Registry) RegisterSubscriber(owner Owner, sessionID, publisherSessionID string, mids []string) error {
-	if !owner.valid() || owner.Role != "viewer" || sessionID == "" || publisherSessionID == "" || len(mids) == 0 {
+	return r.RegisterSubscriberResources(owner, sessionID, publisherSessionID, mids, nil)
+}
+
+// RegisterSubscriberResources binds all exact resources allocated on a Viewer endpoint.
+func (r *Registry) RegisterSubscriberResources(owner Owner, sessionID, publisherSessionID string, mids []string, channelIDs []int) error {
+	if !owner.valid() || owner.Role != "viewer" || sessionID == "" || publisherSessionID == "" || len(mids) == 0 || !validChannelIDs(channelIDs) {
 		return errors.New("invalid Cloudflare subscriber ownership")
 	}
 	r.mu.Lock()
@@ -84,7 +95,7 @@ func (r *Registry) RegisterSubscriber(owner Owner, sessionID, publisherSessionID
 	if _, exists := r.sessions[sessionID]; exists {
 		return errors.New("Cloudflare session is already registered")
 	}
-	r.sessions[sessionID] = SessionResource{SessionID: sessionID, Owner: owner, MIDs: cloneStrings(mids)}
+	r.sessions[sessionID] = SessionResource{SessionID: sessionID, Owner: owner, MIDs: cloneStrings(mids), ChannelIDs: cloneInts(channelIDs)}
 	return nil
 }
 
@@ -152,5 +163,18 @@ func cloneStrings(values []string) []string {
 
 func cloneResource(resource SessionResource) SessionResource {
 	resource.MIDs = cloneStrings(resource.MIDs)
+	resource.ChannelIDs = cloneInts(resource.ChannelIDs)
 	return resource
+}
+
+func cloneInts(values []int) []int { return append([]int(nil), values...) }
+
+func validChannelIDs(values []int) bool {
+	seen := make(map[int]struct{}, len(values))
+	for _, id := range values {
+		if id < 0 || id > 65_534 { return false }
+		if _, exists := seen[id]; exists { return false }
+		seen[id] = struct{}{}
+	}
+	return true
 }
