@@ -171,7 +171,8 @@ func (r *router) sendFreshSfuConfig(participant authenticatedRouteParticipant) {
 		PublicationGeneration: publication.Generation, ConnectionID: connectionID,
 		CloudflareSfu: r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled(),
 	})
-	if participant.role == protocol.RoleHost && publication.Resource != nil {
+	if participant.role == protocol.RoleHost && publication.Resource != nil &&
+		!(r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled()) {
 		if active, err := r.sfu.media.PublicationDemand(resourceFence(publication.Resource), connectionID); err == nil {
 			count := protocol.Int(active)
 			r.hooks.sendToSession(participant.sessionID, protocol.SfuSignalMessage{
