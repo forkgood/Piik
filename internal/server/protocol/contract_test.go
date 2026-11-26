@@ -827,7 +827,7 @@ func TestCloudflareSFUSignalingProtocol(t *testing.T) {
 		`{"type":"cloudflare-sfu","kind":"subscribe","shareGeneration":"share_generation_1","connectionId":"connection_123456","tracks":[{"mid":"0","trackName":"screen-video"}]}`,
 		`{"type":"cloudflare-sfu","kind":"publish","shareGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"offer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"},{"mid":"0","trackName":"screen-audio"}]}`,
 	} { if _, err := DecodeClientMessage([]byte(invalid)); err == nil { t.Errorf("invalid Cloudflare message accepted: %s", invalid) } }
-	response := CloudflareSFUServerMessage{Type:"cloudflare-sfu", Kind:"published", PublicationGeneration:"share_generation_1", ConnectionID:"connection_123456", SessionID:"cloudflare_session_1", Description:&SessionDescription{Type:"answer",SDP:"v=0"}, Tracks:[]CloudflareSFUTrack{{MID:"0",TrackName:"screen-video"}}}
+	response := CloudflareSFUServerMessage{Type:"cloudflare-sfu", Kind:"published", ShareGeneration:"share_generation_1", ConnectionID:"connection_123456", SessionID:"cloudflare_session_1", Description:&SessionDescription{Type:"answer",SDP:"v=0"}, Tracks:[]CloudflareSFUTrack{{MID:"0",TrackName:"screen-video"}}}
 	encoded, err := EncodeServerMessage(response)
 	if err != nil { t.Fatal(err) }
 	if _, err := DecodeServerMessage(encoded); err != nil { t.Fatalf("encoded Cloudflare response rejected: %v", err) }
