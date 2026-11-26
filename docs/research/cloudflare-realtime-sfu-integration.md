@@ -7,7 +7,7 @@ media backend. It is intentionally separate from the existing Pion SFU.
 
 - Keep P2P as the default route.
 - Keep the embedded Pion SFU available as a separate route.
-- Add Cloudflare Realtime as an independently selectable media provider.
+- Add Cloudflare Realtime as a server-configured SFU provider; P2P remains a separate route.
 - Keep the Cloudflare App Secret on the Piik Server only.
 - Reuse Piik room membership, route admission, publication generations, viewer
   authorization, and cleanup ownership.
@@ -47,11 +47,12 @@ The repository branch now includes:
 - A thread-safe ownership registry that binds Cloudflare session IDs to the exact Piik room, share generation, peer, signaling session, and role. It rejects cross-generation subscriptions and stale signaling owners, and returns immutable cleanup snapshots when a peer or share retires. It does not perform network cleanup itself; the signal lifecycle snapshots ownership and performs best-effort track closure outside the authority lock.
 
 The Cloudflare Connection API is invoked by an authenticated WebSocket control
-path. The server advertises Cloudflare availability in runtime capabilities and
-marks each SFU route config with the provider choice. Host and Viewer route
-factories select Cloudflare transport adapters for marked configurations; the
-Pion publisher/subscriber remains the fallback when Cloudflare is not configured.
-The provider-specific path has not yet been verified in a live end-to-end session.
+path. When Cloudflare credentials are configured, the server advertises the
+provider and marks SFU route configs; Host and Viewer factories select the
+Cloudflare transport adapters for those configs. Deployments without Cloudflare
+configuration continue to use the Pion publisher/subscriber. This is a
+server/deployment-level provider choice, not yet a per-room UI selector, and
+has not yet been verified in a live end-to-end session.
 
 ## Implemented control flow (not yet live-E2E verified)
 
