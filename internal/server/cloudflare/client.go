@@ -87,10 +87,21 @@ type DataChannel struct {
 	Location string `json:"location"`
 	DataChannelName string `json:"dataChannelName"`
 	SessionID string `json:"sessionId,omitempty"`
-	CanReply bool `json:"canReply,omitempty"`
+	CanReply *bool `json:"canReply,omitempty"`
+	WaitForAck *bool `json:"waitForAck,omitempty"`
+	Ordered *bool `json:"ordered,omitempty"`
+	MaxRetransmits *int `json:"maxRetransmits,omitempty"`
+	MaxPacketLifeTime *int `json:"maxPacketLifeTime,omitempty"`
 }
 type DataChannelResult struct { DataChannel; ID int `json:"id,omitempty"`; ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"` }
-type DataChannelsResponse struct { ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"`; SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"`; DataChannels []DataChannelResult `json:"dataChannels,omitempty"` }
+type DataChannelsResponse struct {
+	ErrorCode string `json:"errorCode,omitempty"`
+	ErrorDescription string `json:"errorDescription,omitempty"`
+	SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`
+	RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"`
+	DataChannel *DataChannelResult `json:"dataChannel,omitempty"`
+	DataChannels []DataChannelResult `json:"dataChannels,omitempty"`
+}
 
 func isLoopbackHost(host string) bool {
 	if strings.EqualFold(host, "localhost") { return true }
