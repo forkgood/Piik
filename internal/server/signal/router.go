@@ -1739,3 +1739,11 @@ func nullString(value string) any {
 	}
 	return value
 }
+
+
+// configuredIceServers returns a detached route-config copy. Tests and routers
+// without an ICE provider retain an empty list and browser Cloudflare STUN fallback.
+func (r *router) configuredIceServers() []protocol.IceServer {
+  if r.hooks.iceServers == nil { return nil }
+  return append([]protocol.IceServer(nil), r.hooks.iceServers()...)
+}
