@@ -601,9 +601,9 @@ func TestForwardedEvidenceAndSfuConfig(t *testing.T) {
 			`"presentationEpoch":0},"sequence":0,"windowMs":2000,"metrics":`+metrics+`}`), false)
 
 	assertServerMessage(t, "sfu config",
-		[]byte(`{"type":"sfu-config","revision":9,"shareGeneration":"publication_12345678","connectionId":"connection_12345678"}`), true)
+		[]byte(`{"type":"sfu-config","revision":9,"publicationGeneration":"publication_12345678","connectionId":"connection_12345678"}`), true)
 	assertServerMessage(t, "sfu config missing connection fence",
-		[]byte(`{"type":"sfu-config","revision":9,"shareGeneration":"publication_12345678"}`), false)
+		[]byte(`{"type":"sfu-config","revision":9,"publicationGeneration":"publication_12345678"}`), false)
 }
 
 // zod's z.number().int() accepts an integral JSON number in any spelling.
