@@ -121,3 +121,8 @@ The Cloudflare bridge now exposes serialized operations for:
 - closing exact channel IDs allocated on a specific endpoint Session.
 
 The bridge returns IDs and any SDP description to the signaling owner. It does not itself create browser DataChannels, grant room permissions, or bind channel IDs to Registry ownership. Those steps must be completed by the Piik signaling and browser transport integration before remote input is usable.
+
+
+## Browser negotiated remote-input channel
+
+The existing `RemoteInputChannel` now has an explicit negotiated-channel attachment path. It creates Piik's canonical input channel label with `negotiated: true` and the exact endpoint-local ID returned by Cloudflare, and retains the existing open/close/current semantics. Invalid SCTP stream IDs are rejected. This is only the browser-side primitive: Piik has not yet connected the returned Cloudflare channel allocation to the room authorization and route activation flow.
