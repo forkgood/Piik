@@ -160,7 +160,9 @@ the signal server lock.
 Viewer subscriber helpers. They exchange the new typed signaling messages,
 create full-gathering SDP, apply the Cloudflare answer/offer, and wait for the
 Viewer completion acknowledgement. The caller supplies the WebSocket response
-correlator and may supply an existing RTCPeerConnection.
+correlator and may supply an existing RTCPeerConnection. A reply broker buffers
+responses that arrive before the awaiting code registers its waiter and fences
+replies by both operation kind and connection ID.
 
 These helpers are not yet wired into `host-sfu-route` /
 `viewer-sfu-route` or the route controller. They do not yet provide selectable
