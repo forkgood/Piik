@@ -287,6 +287,7 @@ func New(options Options) (*Server, error) {
 			voiceCandidateReady: s.voiceCandidateReady,
 			voiceRouteFailed:    s.voiceRouteFailed,
 			videoGeneration:     s.activeHostShareGeneration,
+			cloudflareSfuEnabled: func() bool { return s.cloudflareBridge != nil },
 		},
 		now:       s.now,
 		afterFunc: s.afterFunc,
