@@ -143,3 +143,70 @@ func TestValidateTrackResultsRejectsUnexpectedOrDuplicateMID(t *testing.T) {
 		t.Fatal("duplicate MID was accepted")
 	}
 }
+
+
+func TestBridgeNegotiatedDataChannelLifecycle(t *testing.T) {
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		switch r.URL.Path {
+		case "/v1/apps/test/sessions/session-1/datachannels/establish":
+			_ = json.NewEncoder(w).Encode(DataChannelsResponse{
+				SessionDescription: &SessionDescription{Type:"offer", SDP:"reserved-offer"},
+				DataChannel: &DataChannelResult{DataChannel:DataChannel{Location:"remote", DataChannelName:"server-events"}, ID:0},
+			})
+		case "/v1/apps/test/sessions/session-1/datachannels/new":
+			var body struct { DataChannels []DataChannel `json:"dataChannels"` }
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil { t.Fatal(err) }
+			if len(body.DataChannels) != 1 || body.DataChannels[0].DataChannelName != "remote-input" {
+				t.Fatalf("unexpected new data channels: %#v", body.DataChannels)
+			}
+			_ = json.NewEncoder(w).Encode(DataChannelsResponse{
+				DataChannels: []DataChannelResult{{DataChannel:DataChannel{Location:"local", DataChannelName:"remote-input"}, ID:2}},
+			})
+		case "/v1/apps/test/sessions/session-1/datachannels/update":
+			var body struct { DataChannels []DataChannel `json:"dataChannels"` }
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil { t.Fatal(err) }
+			if len(body.DataChannels) != 1 || body.DataChannels[0].CanReply == nil || !*body.DataChannels[0].CanReply {
+				t.Fatalf("expected explicit canReply grant: %#v", body.DataChannels)
+			}
+			_ = json.NewEncoder(w).Encode(DataChannelsResponse{})
+		case "/v1/apps/test/sessions/session-1/datachannels/close":
+			var body struct { DataChannels []DataChannelReference `json:"dataChannels"` }
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil { t.Fatal(err) }
+			if len(body.DataChannels) != 1 || body.DataChannels[0].ID != 2 {
+				t.Fatalf("unexpected close IDs: %#v", body.DataChannels)
+			}
+			_ = json.NewEncoder(w).Encode(DataChannelsResponse{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, err := New("test", "secret", WithBaseURL(server.URL+"/v1"), WithHTTPClient(server.Client()))
+	if err != nil { t.Fatal(err) }
+	bridge, err := NewBridge(client)
+	if err != nil { t.Fatal(err) }
+
+	reserved, offer, err := bridge.EstablishDataChannel(context.Background(), "session-1", "server-events")
+	if err != nil { t.Fatal(err) }
+	if reserved.ID != 0 || offer == nil || offer.Type != "offer" {
+		t.Fatalf("unexpected reserved allocation: %#v %#v", reserved, offer)
+	}
+	allocations, _, err := bridge.AllocateDataChannels(context.Background(), "session-1", []DataChannel{
+		{Location:"local", DataChannelName:"remote-input"},
+	})
+	if err != nil { t.Fatal(err) }
+	if len(allocations) != 1 || allocations[0].ID != 2 {
+		t.Fatalf("unexpected allocations: %#v", allocations)
+	}
+	if err := bridge.SetRemoteDataChannelReply(context.Background(), "session-1", "publisher-session", "remote-input", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := bridge.CloseDataChannels(context.Background(), "session-1", []int{2}); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 4 {
+		t.Fatalf("unexpected API calls: %#v", calls)
+	}
+}
