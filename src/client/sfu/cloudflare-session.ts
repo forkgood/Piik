@@ -99,6 +99,11 @@ export class CloudflareSfuReplyBroker {
       return;
     }
     this.buffered.set(key, message);
+    while (this.buffered.size > 64) {
+      const oldest = this.buffered.keys().next().value;
+      if (oldest === undefined) break;
+      this.buffered.delete(oldest);
+    }
   }
 
   waitForReply(
