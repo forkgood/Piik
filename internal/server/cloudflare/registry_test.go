@@ -69,3 +69,19 @@ func TestRegistryRejectsInvalidChannelResourceIDs(t *testing.T) {
 		}
 	}
 }
+
+
+func TestRegistryRetireAllClearsEveryRoomAndGeneration(t *testing.T) {
+	registry := NewRegistry()
+	hostA := Owner{RoomID: "room-a", ShareGeneration: "share-a", PeerID: "host-a", SignalingID: "host-a-session", Role: "host"}
+	viewerA := Owner{RoomID: "room-a", ShareGeneration: "share-a", PeerID: "viewer-a", SignalingID: "viewer-a-session", Role: "viewer"}
+	hostB := Owner{RoomID: "room-b", ShareGeneration: "share-b", PeerID: "host-b", SignalingID: "host-b-session", Role: "host"}
+	if err := registry.RegisterPublisher(hostA, "cf-host-a", []string{"0"}); err != nil { t.Fatal(err) }
+	if err := registry.RegisterSubscriber(viewerA, "cf-viewer-a", "cf-host-a", []string{"1"}); err != nil { t.Fatal(err) }
+	if err := registry.RegisterPublisher(hostB, "cf-host-b", []string{"0"}); err != nil { t.Fatal(err) }
+	retired := registry.RetireAll()
+	if len(retired) != 3 { t.Fatalf("retired %d resources, want 3", len(retired)) }
+	if _, ok := registry.Publisher("room-a", "share-a"); ok { t.Fatal("room-a publisher survived RetireAll") }
+	if _, ok := registry.Publisher("room-b", "share-b"); ok { t.Fatal("room-b publisher survived RetireAll") }
+	if again := registry.RetireAll(); len(again) != 0 { t.Fatalf("second RetireAll returned %d resources", len(again)) }
+}
