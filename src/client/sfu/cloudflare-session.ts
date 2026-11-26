@@ -28,7 +28,7 @@ export async function createCloudflarePublisher(
   signaling: CloudflareSfuSignaling,
   signal: AbortSignal,
   pc = new RTCPeerConnection({ iceServers: [] }),
-): Promise<{ pc: RTCPeerConnection; sessionId: string; tracks: CloudflareSfuTrack[] }> {
+): Promise<{ pc: RTCPeerConnection; tracks: CloudflareSfuTrack[] }> {
   if (tracks.length < 1 || tracks.length > 4) { pc.close(); throw new Error("Cloudflare publisher requires one to four tracks"); }
   const names = new Set<string>();
   const senders = tracks.map(({ track, trackName, stream }) => {
@@ -48,9 +48,9 @@ export async function createCloudflarePublisher(
       connectionId: signaling.connectionId, description: offer, tracks: localTracks });
     const reply = await signaling.waitForReply("published", signaling.connectionId, signal);
     assertFence(reply, signaling);
-    if (reply.kind !== "published" || !reply.description || !reply.sessionId || !reply.tracks) throw new Error("Cloudflare publisher response is incomplete");
+    if (reply.kind !== "published" || !reply.description || !reply.tracks) throw new Error("Cloudflare publisher response is incomplete");
     await pc.setRemoteDescription(description(reply.description));
-    return { pc, sessionId: reply.sessionId, tracks: reply.tracks };
+    return { pc, tracks: reply.tracks };
   })());
 }
 
