@@ -32,6 +32,8 @@ describe("Cloudflare full-SDP negotiation helpers", () => {
     const controller = new AbortController();
     const pending = createCloudflareOffer(pc as unknown as RTCPeerConnection, controller.signal);
     await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(pc.createOffer).toHaveBeenCalledOnce();
     expect(pc.setLocalDescription).toHaveBeenCalledOnce();
     pc.gather();
