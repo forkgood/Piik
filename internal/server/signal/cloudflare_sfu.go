@@ -108,6 +108,7 @@ func (s *Server) runCloudflareSFU(
 			for _, track := range publication.Tracks { response.Tracks = append(response.Tracks, protocol.CloudflareSFUTrack{MID: track.MID, TrackName: track.TrackName}) }
 		} else if publication.SessionID != "" {
 			resource := cloudflarerealtime.SessionResource{SessionID: publication.SessionID, Owner: owner}
+			for _, track := range publication.Tracks { resource.MIDs = append(resource.MIDs, track.MID) }
 			cleanup = &resource
 		}
 	case "subscribe":
@@ -122,6 +123,7 @@ func (s *Server) runCloudflareSFU(
 			for _, track := range subscription.Tracks { response.Tracks = append(response.Tracks, protocol.CloudflareSFUTrack{MID: track.MID, TrackName: track.TrackName}) }
 		} else if subscription.SessionID != "" {
 			resource := cloudflarerealtime.SessionResource{SessionID: subscription.SessionID, Owner: owner}
+			for _, track := range subscription.Tracks { resource.MIDs = append(resource.MIDs, track.MID) }
 			cleanup = &resource
 		}
 	case "complete":
