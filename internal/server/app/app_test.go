@@ -97,6 +97,9 @@ func TestNewInitializesCloudflareRealtimeClientWithoutNetworkAccess(t *testing.T
 	if server.cloudflareSFU == nil {
 		t.Fatal("Cloudflare Realtime client was not initialized")
 	}
+	if server.signalOptions.SfuFallback == nil {
+		t.Fatal("Cloudflare configuration did not enable signaling-only SFU routing")
+	}
 	if err := server.Close(context.Background()); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
