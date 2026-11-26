@@ -288,6 +288,7 @@ func New(options Options) (*Server, error) {
 			voiceRouteFailed:    s.voiceRouteFailed,
 			videoGeneration:     s.activeHostShareGeneration,
 			cloudflareSfuEnabled: func() bool { return s.cloudflareBridge != nil },
+			iceServers: func() []protocol.IceServer { return append([]protocol.IceServer(nil), s.ice.IceServers...) },
 		},
 		now:       s.now,
 		afterFunc: s.afterFunc,
