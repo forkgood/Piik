@@ -44,6 +44,7 @@ The repository branch now includes:
 
 - A per-session operation queue with cancellation and independent-session concurrency. Its callback boundary spans each API + SDP exchange.
 - A server-side negotiation bridge that creates publisher sessions and local-track publications from a gathered Host offer, creates viewer sessions and remote-track subscriptions, and completes viewer SDP answers through renegotiation. The bridge remains policy-free and is not yet wired into authenticated room signaling.
+- A thread-safe ownership registry that binds Cloudflare session IDs to the exact Piik room, share generation, peer, signaling session, and role. It rejects cross-generation subscriptions and stale signaling owners, and returns immutable cleanup snapshots when a peer or share retires. It does not perform network cleanup itself; the future signaling lifecycle must execute best-effort track closure outside the authority lock.
 
 This checkpoint is deliberately not advertised as a usable Cloudflare route:
 the signal router and browser still use the existing Pion SFU contract. The
