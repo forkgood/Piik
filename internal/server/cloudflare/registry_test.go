@@ -85,3 +85,27 @@ func TestRegistryRetireAllClearsEveryRoomAndGeneration(t *testing.T) {
 	if _, ok := registry.Publisher("room-b", "share-b"); ok { t.Fatal("room-b publisher survived RetireAll") }
 	if again := registry.RetireAll(); len(again) != 0 { t.Fatalf("second RetireAll returned %d resources", len(again)) }
 }
+
+
+func TestRegistryCloudflareTrackNamesAndConnectionFence(t *testing.T) {
+	registry := NewRegistry()
+	host := Owner{RoomID:"room-a", ShareGeneration:"share-1", PeerID:"host", SignalingID:"host-signal", Role:"host"}
+	publisherTracks := []TrackResult{
+		{Track: Track{Location:"local", MID:"0", TrackName:"screen-video"}},
+		{Track: Track{Location:"local", MID:"1", TrackName:"screen-audio"}},
+	}
+	if err := registry.RegisterPublisherTracks(host, "connection_host_1", "cf-host", publisherTracks); err != nil { t.Fatal(err) }
+	publisher, ok := registry.Publisher("room-a", "share-1")
+	if !ok || len(publisher.TrackNames) != 2 || publisher.TrackNames[0] != "screen-video" { t.Fatalf("unexpected publisher track names: %#v", publisher) }
+	if _, ok := registry.SessionForOwner(host, "wrong_connection"); ok { t.Fatal("wrong browser connection resolved publisher") }
+	if got, ok := registry.SessionForOwner(host, "connection_host_1"); !ok || got.SessionID != "cf-host" { t.Fatalf("exact publisher connection did not resolve: %#v", got) }
+
+	viewer := Owner{RoomID:"room-a", ShareGeneration:"share-1", PeerID:"viewer", SignalingID:"viewer-signal", Role:"viewer"}
+	subscriberTracks := []TrackResult{
+		{Track: Track{Location:"remote", SessionID:"cf-host", MID:"0", TrackName:"screen-video"}},
+		{Track: Track{Location:"remote", SessionID:"cf-host", MID:"1", TrackName:"screen-audio"}},
+	}
+	if err := registry.RegisterSubscriberTracks(viewer, "connection_viewer_1", "cf-viewer", "cf-host", subscriberTracks); err != nil { t.Fatal(err) }
+	if _, ok := registry.SessionForOwner(viewer, "connection_viewer_1"); !ok { t.Fatal("exact subscriber connection did not resolve") }
+	if err := registry.RegisterSubscriberTracks(viewer, "connection_viewer_2", "cf-viewer-2", "wrong-publisher", subscriberTracks); err == nil { t.Fatal("subscriber bound to wrong publisher") }
+}
