@@ -60,20 +60,20 @@ export async function createCloudflareSubscriber(
   signal: AbortSignal,
   onTrack: (event: RTCTrackEvent) => void,
   pc = new RTCPeerConnection({ iceServers: [] }),
-): Promise<{ pc: RTCPeerConnection; sessionId: string; tracks: CloudflareSfuTrack[] }> {
+): Promise<{ pc: RTCPeerConnection; tracks: CloudflareSfuTrack[] }> {
   pc.addEventListener("track", onTrack);
   return closeOnFailure(pc, (async () => {
     signaling.send({ type: "cloudflare-sfu", kind: "subscribe", shareGeneration: signaling.shareGeneration, connectionId: signaling.connectionId });
     const reply = await signaling.waitForReply("subscribed", signaling.connectionId, signal);
     assertFence(reply, signaling);
-    if (reply.kind !== "subscribed" || !reply.description || !reply.sessionId || !reply.tracks) throw new Error("Cloudflare subscriber response is incomplete");
+    if (reply.kind !== "subscribed" || !reply.description || !reply.tracks) throw new Error("Cloudflare subscriber response is incomplete");
     const gatheredAnswer = await createCloudflareAnswer(pc, description(reply.description), signal);
     const answer = { type: "answer" as const, sdp: gatheredAnswer.sdp ?? "" };
     signaling.send({ type: "cloudflare-sfu", kind: "complete", shareGeneration: signaling.shareGeneration, connectionId: signaling.connectionId, description: answer });
     const completed = await signaling.waitForReply("completed", signaling.connectionId, signal);
     assertFence(completed, signaling);
     if (completed.kind !== "completed") throw new Error("Cloudflare subscriber completion was not acknowledged");
-    return { pc, sessionId: reply.sessionId, tracks: reply.tracks };
+    return { pc, tracks: reply.tracks };
   })());
 }
 
