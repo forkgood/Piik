@@ -157,6 +157,7 @@ import {
 } from "../media/quality";
 import { HostSfuRoute } from "../media/host-sfu-route";
 import { CloudflareSfuReplyBroker } from "../sfu/cloudflare-session";
+import { CloudflareSfuPublisherTransport } from "../sfu/cloudflare-route-adapters";
 import { relayPhysicalCapacity } from "../media/relay-capability";
 import { BrowserEncodingPool } from "../media/browser-encoding-pool";
 import {
@@ -655,6 +656,7 @@ export function HostPage({
   const retiringStreamRef = useRef<MediaStream | null>(null);
   const hostSfuRouteRef = useRef<HostSfuRoute | null>(null);
   const cloudflareSfuBrokerRef = useRef(new CloudflareSfuReplyBroker());
+  const cloudflareSfuEnabledRef = useRef(false);
   const [nativeConnection] = useState(() => new NativeClientConnection(connectNativeClient, handleNativeClientClosed));
   const nativeShareGenerationRef = useRef<string | null>(null);
   const serverShareGenerationRef = useRef<string | null>(null);
@@ -878,6 +880,14 @@ export function HostPage({
           const ice = iceConfigRef.current;
           if (!client || !shareId || !ice) throw new Error("Native publication source is unavailable");
           return new NativeSfuPublisher(client, shareId, ice, events);
+        }
+        if (cloudflareSfuEnabledRef.current) {
+          return new CloudflareSfuPublisherTransport(
+            events.send,
+            cloudflareSfuBrokerRef.current,
+            () => shareGenerationRef.current,
+            onDisconnected,
+          );
         }
         return new SfuPublisher(events);
       },
@@ -2934,6 +2944,7 @@ export function HostPage({
     remoteInputPeersRef.current = [];
     void getRuntimeCapabilities().then(capabilities => {
       if (signalRef.current === signal) {
+        cloudflareSfuEnabledRef.current = capabilities.cloudflareSfu === true;
         hostRelayAvailableRef.current = capabilities.roomRelayCapacity === true && !capabilities.sfuOnly;
         setHostRelaySupported(hostRelayAvailableRef.current);
         updateHostRelayCapacity();
