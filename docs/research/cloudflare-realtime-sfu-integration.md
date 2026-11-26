@@ -42,7 +42,8 @@ The repository branch now includes:
 - A Go API client for session creation/inspection, track create/update/close,
   renegotiation, and DataChannel transport/allocation/update/close operations.
 
-- A per-session operation queue with cancellation and independent-session concurrency. Its callback boundary is intended to span the complete API + SDP exchange, not just the initial HTTP request.
+- A per-session operation queue with cancellation and independent-session concurrency. Its callback boundary spans each API + SDP exchange.
+- A server-side negotiation bridge that creates publisher sessions and local-track publications from a gathered Host offer, creates viewer sessions and remote-track subscriptions, and completes viewer SDP answers through renegotiation. The bridge remains policy-free and is not yet wired into authenticated room signaling.
 
 This checkpoint is deliberately not advertised as a usable Cloudflare route:
 the signal router and browser still use the existing Pion SFU contract. The
