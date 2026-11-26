@@ -9,6 +9,8 @@ on:
       - "internal/server/app/**"
       - "src/client/sfu/cloudflare-sdp.ts"
       - "tests/cloudflare-sdp.test.ts"
+      - "src/client/webrtc/remote-input-channel.ts"
+      - "tests/remote-input-channel.test.ts"
       - "package.json"
       - "package-lock.json"
       - "go.mod"
@@ -79,4 +81,4 @@ jobs:
         run: npm run typecheck
 
       - name: Test Cloudflare SDP negotiation
-        run: npx vitest run tests/cloudflare-sdp.test.ts
+        run: npx vitest run tests/cloudflare-sdp.test.ts tests/remote-input-channel.test.ts
