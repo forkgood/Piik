@@ -197,6 +197,15 @@ func New(options Options) (*Server, error) {
 		AfterFunc:                     options.AfterFunc,
 		Logger:                        logger,
 	}
+	if configuration.CloudflareSFU != nil && configuration.SFU == nil {
+		server.signalOptions.SfuFallback = &signal.SfuFallback{
+			Media: sfu.NewSignalingOnlyRuntime(),
+			Admission: sfu.NewAdmission(sfu.AdmissionOptions{
+				IngressCapacity: room.Capacity,
+				EgressCapacity: room.Capacity * configuration.MaxViewersPerRoom,
+			}),
+		}
+	}
 	server.httpServer = &http.Server{
 		Handler:           server,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelDebug),
