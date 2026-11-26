@@ -296,7 +296,7 @@ func (s *Server) revokeGrantViewers(roomID string, update room.ViewerGrantUpdate
 func (s *Server) closeRevokedViewerSession(sessionID string) {
 	if sess := s.sessionsByID[sessionID]; sess != nil && sess.authenticated != nil {
 		auth := sess.authenticated
-		s.retireCloudflarePeer(auth.roomID, auth.shareGeneration, auth.peerID, sessionID)
+		s.retireCloudflarePeer(auth.roomID, s.shares[auth.roomID].generation, auth.peerID, sessionID)
 	}
 	sess := s.sessionsByID[sessionID]
 	if sess == nil {
