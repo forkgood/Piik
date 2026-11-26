@@ -438,6 +438,9 @@ func (s *Server) hasConnectionCapacity() bool {
 func (s *Server) Close(ctx context.Context) error {
 	s.mu.Lock()
 	s.closing = true
+	if s.cloudflareRegistry != nil {
+		s.cleanupCloudflareResources(s.cloudflareRegistry.RetireAll())
+	}
 	for roomID := range s.voices {
 		s.closeRoomVoice(roomID)
 	}
