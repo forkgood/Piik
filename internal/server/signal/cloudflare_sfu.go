@@ -88,6 +88,7 @@ func (s *Server) runCloudflareSFU(
 	}
 	var cleanup *cloudflarerealtime.SessionResource
 	var operationErr error
+	cloudflareSessionID := ""
 
 	switch message.Kind {
 	case "publish":
@@ -103,7 +104,8 @@ func (s *Server) runCloudflareSFU(
 			resource := cloudflarerealtime.SessionResource{SessionID: publication.SessionID, Owner: owner, ConnectionID: message.ConnectionID}
 			for _, track := range publication.Tracks { resource.MIDs = append(resource.MIDs, track.MID); resource.TrackNames = append(resource.TrackNames, track.TrackName) }
 			cleanup = &resource
-			response.Kind, response.SessionID = "published", publication.SessionID
+			response.Kind = "published"
+			cloudflareSessionID = publication.SessionID
 			response.Description = &protocol.SessionDescription{Type: publication.Answer.Type, SDP: publication.Answer.SDP}
 			for _, track := range publication.Tracks { response.Tracks = append(response.Tracks, protocol.CloudflareSFUTrack{MID: track.MID, TrackName: track.TrackName}) }
 		} else if publication.SessionID != "" {
@@ -118,7 +120,8 @@ func (s *Server) runCloudflareSFU(
 			resource := cloudflarerealtime.SessionResource{SessionID: subscription.SessionID, Owner: owner, ConnectionID: message.ConnectionID}
 			for _, track := range subscription.Tracks { resource.MIDs = append(resource.MIDs, track.MID); resource.TrackNames = append(resource.TrackNames, track.TrackName) }
 			cleanup = &resource
-			response.Kind, response.SessionID = "subscribed", subscription.SessionID
+			response.Kind = "subscribed"
+			cloudflareSessionID = subscription.SessionID
 			response.Description = &protocol.SessionDescription{Type: subscription.Offer.Type, SDP: subscription.Offer.SDP}
 			for _, track := range subscription.Tracks { response.Tracks = append(response.Tracks, protocol.CloudflareSFUTrack{MID: track.MID, TrackName: track.TrackName}) }
 		} else if subscription.SessionID != "" {
@@ -140,9 +143,9 @@ func (s *Server) runCloudflareSFU(
 	if operationErr == nil && current {
 		switch message.Kind {
 		case "publish":
-			operationErr = s.cloudflareRegistry.RegisterPublisherTracks(owner, message.ConnectionID, response.SessionID, tracksFromProtocol(response.Tracks, "local", ""))
+			operationErr = s.cloudflareRegistry.RegisterPublisherTracks(owner, message.ConnectionID, cloudflareSessionID, tracksFromProtocol(response.Tracks, "local", ""))
 		case "subscribe":
-			operationErr = s.cloudflareRegistry.RegisterSubscriberTracks(owner, message.ConnectionID, response.SessionID, publisher.SessionID, tracksFromProtocol(response.Tracks, "remote", publisher.SessionID))
+			operationErr = s.cloudflareRegistry.RegisterSubscriberTracks(owner, message.ConnectionID, cloudflareSessionID, publisher.SessionID, tracksFromProtocol(response.Tracks, "remote", publisher.SessionID))
 		}
 	}
 	if operationErr == nil && current {
