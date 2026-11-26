@@ -78,6 +78,7 @@ func (s *Server) route(
 		}
 		sendJSON(writer, http.StatusOK, protocol.RuntimeCapabilities{
 			Sfu:                        s.config.SFU != nil,
+			CloudflareSfu:              s.config.CloudflareSFU != nil,
 			SfuOnly:                    s.config.SFU != nil && s.config.SFU.Only,
 			NatPrediction:              s.config.NATPredictionEnabled && !(s.config.SFU != nil && s.config.SFU.Only),
 			RoomInteractions:           true,
