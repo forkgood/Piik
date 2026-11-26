@@ -7,7 +7,6 @@ const reply: CloudflareSfuServerMessage = {
   kind: "published",
   shareGeneration: "share_generation_1",
   connectionId: "connection_123456",
-  sessionId: "cloudflare_session_123",
   description: { type: "answer", sdp: "v=0" },
   tracks: [{ mid: "0", trackName: "screen-video" }],
 };
