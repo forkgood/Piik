@@ -1275,7 +1275,7 @@ export const serverMessageSchema = z.union([
     .object({
       type: z.literal("sfu-config"),
       revision: mediaRouteRevisionSchema,
-      shareGeneration: opaqueIdSchema,
+      publicationGeneration: opaqueIdSchema,
       connectionId: opaqueIdSchema,
     })
     .strict(),
