@@ -170,7 +170,7 @@ func (r *router) sendFreshSfuConfig(participant authenticatedRouteParticipant) {
 		Type: "sfu-config", Revision: protocol.Int(revision),
 		PublicationGeneration: publication.Generation, ConnectionID: connectionID,
 		CloudflareSfu: r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled(),
-		IceServers: r.hooks.iceServers(),
+		IceServers: r.configuredIceServers(),
 	})
 	if participant.role == protocol.RoleHost && publication.Resource != nil &&
 		!(r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled()) {
