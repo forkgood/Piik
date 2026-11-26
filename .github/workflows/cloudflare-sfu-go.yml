@@ -78,6 +78,9 @@ jobs:
       - name: Test server configuration
         run: go test ./internal/server/config
 
+      - name: Test signaling-only SFU runtime
+        run: go test ./internal/server/sfu
+
       - name: Test signaling and protocol integration
         run: go test ./internal/server/protocol ./internal/server/signal
 
