@@ -293,6 +293,8 @@ func DecodeServerMessage(data []byte) (ServerMessage, error) {
 		return decodeSfuConfig(data)
 	case "sfu-signal":
 		return decodeSfuSignal(data)
+	case "cloudflare-sfu":
+		return decodeCloudflareSFUServer(data)
 	case "quality-settings":
 		return decodeQualitySettingsMessage(data)
 	case "route-policy":
