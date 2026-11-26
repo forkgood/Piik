@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { RemoteInputChannel } from "../src/client/webrtc/remote-input-channel.ts";
+import { INPUT_CHANNEL } from "../src/client/remote-control/input-route.ts";
 
 class FakeDataChannel extends EventTarget {
   readyState: RTCDataChannelState = "connecting";
-  label = "piik-input";
+  label = INPUT_CHANNEL;
   close = vi.fn(() => { this.readyState = "closed"; this.dispatchEvent(new Event("close")); });
   open(): void { this.readyState = "open"; this.dispatchEvent(new Event("open")); }
 }
@@ -20,7 +21,7 @@ describe("RemoteInputChannel negotiated transport", () => {
     const changed = vi.fn();
     const input = new RemoteInputChannel(changed);
     const channel = input.attachNegotiated(pc as unknown as RTCPeerConnection, 17);
-    expect(pc.createDataChannel).toHaveBeenCalledWith("piik-input", {
+    expect(pc.createDataChannel).toHaveBeenCalledWith(INPUT_CHANNEL, {
       negotiated: true,
       id: 17,
       ordered: true,
