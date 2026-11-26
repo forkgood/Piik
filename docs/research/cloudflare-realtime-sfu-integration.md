@@ -126,3 +126,8 @@ The bridge returns IDs and any SDP description to the signaling owner. It does n
 ## Browser negotiated remote-input channel
 
 The existing `RemoteInputChannel` now has an explicit negotiated-channel attachment path. It creates Piik's canonical input channel label with `negotiated: true` and the exact endpoint-local ID returned by Cloudflare, and retains the existing open/close/current semantics. Invalid SCTP stream IDs are rejected. This is only the browser-side primitive: Piik has not yet connected the returned Cloudflare channel allocation to the room authorization and route activation flow.
+
+
+## Complete per-session resource ownership
+
+The Registry can now retain both media MIDs and endpoint-local negotiated DataChannel IDs in the same immutable session resource snapshot. Channel IDs are range-checked, duplicate IDs are rejected, and returned cleanup snapshots deep-copy both slices. `Bridge.CloseResources` attempts exact track and DataChannel cleanup for that snapshot and joins any errors, so failure in one cleanup does not prevent attempting the other.
