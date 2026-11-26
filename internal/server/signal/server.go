@@ -26,6 +26,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/TNTcraftHIM/Piik/internal/server/config"
+	cloudflarerealtime "github.com/TNTcraftHIM/Piik/internal/server/cloudflare"
 	"github.com/TNTcraftHIM/Piik/internal/server/ordered"
 	"github.com/TNTcraftHIM/Piik/internal/server/protocol"
 	"github.com/TNTcraftHIM/Piik/internal/server/room"
@@ -73,6 +74,9 @@ type Options struct {
 	SfuFallback *SfuFallback
 	// SfuOnly restricts the existing controller to server media candidates.
 	SfuOnly bool
+	// CloudflareBridge and CloudflareRegistry are optional Cloudflare transport resources.
+	CloudflareBridge *cloudflarerealtime.Bridge
+	CloudflareRegistry *cloudflarerealtime.Registry
 	// Ice is the derived wire ICE configuration (config.IceConfig).
 	Ice protocol.IceConfig
 	// NATPredictionEnabled is the server capability that clamps a Host's
@@ -153,6 +157,8 @@ type Server struct {
 	store                     *room.Store
 	endpointMediaCopyCapacity int
 	sfuFallback               *SfuFallback
+	cloudflareBridge          *cloudflarerealtime.Bridge
+	cloudflareRegistry        *cloudflarerealtime.Registry
 	ice                       protocol.IceConfig
 	natPredictionEnabled      bool
 	allowedOrigins            map[string]struct{}
@@ -203,6 +209,9 @@ func New(options Options) (*Server, error) {
 	if options.SfuFallback != nil && (options.SfuFallback.Media == nil || options.SfuFallback.Admission == nil) {
 		return nil, errors.New("SFU fallback requires media and resource admission")
 	}
+	if (options.CloudflareBridge == nil) != (options.CloudflareRegistry == nil) {
+		return nil, errors.New("Cloudflare signaling requires both bridge and registry")
+	}
 	if options.SfuOnly && options.SfuFallback == nil {
 		return nil, errors.New("SFU-only routing requires SFU media and resource admission")
 	}
@@ -210,6 +219,8 @@ func New(options Options) (*Server, error) {
 		store:                         options.Store,
 		endpointMediaCopyCapacity:     options.EndpointMediaCopyCapacity,
 		sfuFallback:                   options.SfuFallback,
+		cloudflareBridge:               options.CloudflareBridge,
+		cloudflareRegistry:             options.CloudflareRegistry,
 		ice:                           options.Ice,
 		natPredictionEnabled:          options.NATPredictionEnabled,
 		allowedOrigins:                options.AllowedOrigins,
