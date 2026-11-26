@@ -9,6 +9,7 @@ on:
       - "internal/server/app/**"
       - "internal/server/protocol/**"
       - "internal/server/signal/**"
+      - "internal/server/sfu/**"
       - "src/shared/protocol.ts"
       - "src/client/sfu/cloudflare-session.ts"
       - "src/client/sfu/cloudflare-route-adapters.ts"
