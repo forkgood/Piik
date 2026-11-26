@@ -18,6 +18,7 @@ func TestRuntimeCapabilities(t *testing.T) {
 		{`{"relayVolunteer":true,"roomRelayCapacity":true}`, RuntimeCapabilities{RelayVolunteer: true, RoomRelayCapacity: true}},
 		{`{"sfu":true,"extra":{"enabled":true}}`, RuntimeCapabilities{Sfu: true}},
 		{`{"sfu":true,"sfuOnly":true}`, RuntimeCapabilities{Sfu: true, SfuOnly: true}},
+		{`{"cloudflareSfu":true}`, RuntimeCapabilities{CloudflareSfu: true}},
 		{`{"natPrediction":true,"SFU":true}`, RuntimeCapabilities{NatPrediction: true}},
 		{`{"sfu":true,"natPrediction":true}`, RuntimeCapabilities{Sfu: true, NatPrediction: true}},
 		{`{"sfu":"ignored duplicate","sfu":true}`, RuntimeCapabilities{Sfu: true}},
