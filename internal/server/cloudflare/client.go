@@ -119,7 +119,7 @@ func (c *Client) do(ctx context.Context, method, path string, input, output any)
 	if err != nil { return err }
 	req.Header.Set("Authorization", "Bearer "+c.secret)
 	req.Header.Set("Accept", "application/json")
-	if input != nil { req.Header.Set("Content-Type", "application/json") }
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.http.Do(req)
 	if err != nil { return fmt.Errorf("Cloudflare Realtime request outcome may be unknown: %w", err) }
 	defer resp.Body.Close()
