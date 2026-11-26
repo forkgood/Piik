@@ -1277,6 +1277,7 @@ export const serverMessageSchema = z.union([
       revision: mediaRouteRevisionSchema,
       publicationGeneration: opaqueIdSchema,
       connectionId: opaqueIdSchema,
+      cloudflareSfu: z.boolean().optional(),
     })
     .strict(),
   sfuSignalMessageSchema,
