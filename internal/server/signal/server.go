@@ -1341,6 +1341,8 @@ func (s *Server) handleAuthenticatedMessage(sess *session, authenticated *authen
 		s.router.handleRouteFailed(routeParticipant(sess, authenticated), m)
 	case protocol.SfuSignalMessage:
 		s.router.handleSfuSignal(routeParticipant(sess, authenticated), m)
+	case protocol.CloudflareSFUMessage:
+		s.handleCloudflareSFU(sess, authenticated, m)
 	case protocol.RefreshSfuMessage:
 		if s.sfuFallback == nil {
 			s.sendError(sess, "FORBIDDEN", "SFU fallback is not enabled")
