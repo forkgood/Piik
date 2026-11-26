@@ -334,6 +334,7 @@ export const iceCandidateSchema = z
     usernameFragment: z.string().max(256).nullable().optional(),
   })
   .strict();
+export type SessionDescription = z.infer<typeof sessionDescriptionSchema>;
 
 export const voiceDescriptionSchema = z.object({
   revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
@@ -436,6 +437,7 @@ const cloudflareSfuTrackSchema = z.object({
   mid: z.string().min(1).max(128),
   trackName: z.string().min(1).max(64),
 }).strict();
+export type CloudflareSfuTrack = z.infer<typeof cloudflareSfuTrackSchema>;
 
 const cloudflareSfuClientMessageSchema = z.object({
   type: z.literal("cloudflare-sfu"),
