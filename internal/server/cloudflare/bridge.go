@@ -69,8 +69,8 @@ func (b *Bridge) Publish(ctx context.Context, offer SessionDescription, tracks [
 			response.SessionDescription.SDP == "" {
 			return errors.New("Cloudflare publisher response did not contain an SDP answer")
 		}
-		if len(response.Tracks) != len(tracks) {
-			return fmt.Errorf("Cloudflare publisher returned %d track results for %d requested tracks", len(response.Tracks), len(tracks))
+		if err := validateTrackResults(tracks, response.Tracks); err != nil {
+			return fmt.Errorf("validate Cloudflare publisher tracks: %w", err)
 		}
 		return nil
 	})
@@ -114,8 +114,8 @@ func (b *Bridge) Subscribe(ctx context.Context, publisherSessionID string, track
 			response.SessionDescription.SDP == "" {
 			return errors.New("Cloudflare subscription response did not contain an SDP offer")
 		}
-		if len(response.Tracks) != len(tracks) {
-			return fmt.Errorf("Cloudflare returned %d subscription results for %d requested tracks", len(response.Tracks), len(tracks))
+		if err := validateTrackResults(tracks, response.Tracks); err != nil {
+			return fmt.Errorf("validate Cloudflare subscription tracks: %w", err)
 		}
 		return nil
 	})
@@ -132,4 +132,56 @@ func (b *Bridge) CompleteSubscription(ctx context.Context, sessionID string, ans
 		_, err := b.client.Renegotiate(operationCtx, sessionID, answer)
 		return err
 	})
+}
+
+
+// CloseTracks retires the exact Cloudflare MIDs recorded for a Piik-owned
+// session. Force closure avoids creating a second SDP exchange while the
+// browser may already be gone. The caller must fence the lifecycle event
+// before removing its ownership record; cleanup itself is best-effort.
+func (b *Bridge) CloseTracks(ctx context.Context, sessionID string, mids []string) error {
+	if sessionID == "" || len(mids) == 0 {
+		return nil
+	}
+	return b.queue.Do(ctx, sessionID, func(operationCtx context.Context) error {
+		response, err := b.client.CloseTracks(operationCtx, sessionID, mids, true, nil)
+		if err != nil {
+			return err
+		}
+		if failures := response.ResourceErrors(); len(failures) != 0 {
+			return fmt.Errorf("Cloudflare track cleanup failed: %v", failures)
+		}
+		return nil
+	})
+}
+
+// validateTrackResults verifies that Cloudflare returned one unique MID for
+// every requested stable track name. Partial or unexpected results must not
+// be committed into Piik's resource registry.
+func validateTrackResults(requested []Track, returned []TrackResult) error {
+	if len(requested) != len(returned) {
+		return fmt.Errorf("Cloudflare returned %d track results for %d requested tracks", len(returned), len(requested))
+	}
+	seen := make(map[string]struct{}, len(returned))
+	for _, result := range returned {
+		if result.MID == "" || result.TrackName == "" {
+			return errors.New("Cloudflare track result is missing MID or trackName")
+		}
+		if _, exists := seen[result.MID]; exists {
+			return fmt.Errorf("Cloudflare returned duplicate track MID %q", result.MID)
+		}
+		seen[result.MID] = struct{}{}
+		matched := false
+		for _, input := range requested {
+			if input.TrackName == result.TrackName && input.Location == result.Location &&
+				(input.Location != "remote" || input.SessionID == result.SessionID) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("Cloudflare returned unexpected track %q", result.TrackName)
+		}
+	}
+	return nil
 }
