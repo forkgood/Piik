@@ -49,10 +49,11 @@ The repository branch now includes:
 The Cloudflare Connection API is invoked by an authenticated WebSocket control
 path. When Cloudflare credentials are configured, the server advertises the
 provider and marks SFU route configs; Host and Viewer factories select the
-Cloudflare transport adapters for those configs. Deployments without Cloudflare
-configuration continue to use the Pion publisher/subscriber. This is a
-server/deployment-level provider choice, not yet a per-room UI selector, and
-has not yet been verified in a live end-to-end session.
+Cloudflare transport adapters for those configs. A Cloudflare-only deployment
+uses a signaling-only route runtime and does not open a Pion UDP media listener.
+Deployments without Cloudflare configuration continue to use the Pion
+publisher/subscriber. Provider choice is server/deployment-level, not a
+per-room UI selector, and has not yet been verified in a live end-to-end session.
 
 ## Implemented control flow (not yet live-E2E verified)
 
@@ -171,6 +172,7 @@ The helpers are now wired into `host-sfu-route` / `viewer-sfu-route` through
 provider-specific transport adapters. The server marks Cloudflare routes when
 credentials are configured; clients select the adapter for those route configs.
 The Viewer adapter attaches received audio/video tracks to Piik presentation
-streams and reports decoded-frame progress. Remote-input DataChannel negotiation
+streams and reports decoded-frame progress. A signaling-only SFU runtime enables
+route admission when Cloudflare is configured without Pion media. Remote-input DataChannel negotiation
 and live Cloudflare end-to-end tests remain pending. P2P is unchanged, and the
 Native Pion route remains the fallback for deployments without Cloudflare config.
