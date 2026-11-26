@@ -132,6 +132,7 @@ import {
   ViewerRelay,
   type ViewerRelayPeerFactory,
 } from "../webrtc/viewer-relay";
+import { SfuSubscriber } from "../sfu/subscriber";
 import { NativeClient } from "../native/client";
 import { NativeClientConnection } from "../native/client-connection";
 import {
