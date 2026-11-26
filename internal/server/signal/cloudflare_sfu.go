@@ -18,7 +18,7 @@ func (s *Server) handleCloudflareSFU(sess *session, authenticated *authenticated
 		return
 	}
 	generation := s.shares[authenticated.roomID].generation
-	if generation == "" || generation != message.PublicationGeneration {
+	if generation == "" || generation != message.ShareGeneration {
 		s.sendError(sess, "FORBIDDEN", "Cloudflare SFU publication is stale")
 		return
 	}
@@ -83,7 +83,7 @@ func (s *Server) runCloudflareSFU(
 	defer cancel()
 	var response protocol.CloudflareSFUServerMessage
 	response = protocol.CloudflareSFUServerMessage{
-		Type: "cloudflare-sfu", PublicationGeneration: owner.ShareGeneration,
+		Type: "cloudflare-sfu", ShareGeneration: owner.ShareGeneration,
 		ConnectionID: message.ConnectionID,
 	}
 	var cleanup *cloudflarerealtime.SessionResource
