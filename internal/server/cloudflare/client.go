@@ -158,6 +158,7 @@ func (c *Client) NewTracks(ctx context.Context, sessionID string, description *S
 	input := struct { SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; Tracks []Track `json:"tracks"` }{description, tracks}
 	var out TracksResponse
 	err := c.do(ctx, http.MethodPost, "/sessions/"+url.PathEscape(sessionID)+"/tracks/new", input, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
 	return out, err
 }
 
@@ -165,6 +166,7 @@ func (c *Client) Renegotiate(ctx context.Context, sessionID string, answer Sessi
 	if sessionID == "" || answer.Type != "answer" || answer.SDP == "" { return RenegotiateResponse{}, errors.New("sessionId and a non-empty SDP answer are required") }
 	var out RenegotiateResponse
 	err := c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/renegotiate", struct { SessionDescription SessionDescription `json:"sessionDescription"` }{answer}, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
 	return out, err
 }
 
@@ -192,6 +194,7 @@ func (c *Client) CloseTracks(ctx context.Context, sessionID string, mids []strin
 	}{tracks, offer, force}
 	var out TracksResponse
 	err := c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/tracks/close", input, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
 	return out, err
 }
 
@@ -200,6 +203,8 @@ func (c *Client) EstablishDataChannel(ctx context.Context, sessionID, name strin
 	input := struct { DataChannel DataChannel `json:"dataChannel"` }{DataChannel{Location:"remote", DataChannelName:name}}
 	var out DataChannelsResponse
 	err := c.do(ctx, http.MethodPost, "/sessions/"+url.PathEscape(sessionID)+"/datachannels/establish", input, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
+	if err == nil && out.DataChannel != nil && out.DataChannel.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.DataChannel.ErrorCode, Description:out.DataChannel.ErrorDescription} }
 	return out, err
 }
 
@@ -213,6 +218,7 @@ func (c *Client) NewDataChannels(ctx context.Context, sessionID string, channels
 	}
 	var out DataChannelsResponse
 	err := c.do(ctx, http.MethodPost, "/sessions/"+url.PathEscape(sessionID)+"/datachannels/new", struct { DataChannels []DataChannel `json:"dataChannels"` }{channels}, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
 	return out, err
 }
 
@@ -227,6 +233,7 @@ func (r TracksResponse) ResourceErrors() []string {
 func (r DataChannelsResponse) ResourceErrors() []string {
 	var out []string
 	if r.ErrorCode != "" { out = append(out, r.ErrorCode+": "+r.ErrorDescription) }
+	if r.DataChannel != nil && r.DataChannel.ErrorCode != "" { out = append(out, r.DataChannel.ErrorCode+": "+r.DataChannel.ErrorDescription) }
 	for _, item := range r.DataChannels { if item.ErrorCode != "" { out = append(out, item.ErrorCode+": "+item.ErrorDescription) } }
 	return out
 }
