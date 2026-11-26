@@ -108,6 +108,8 @@ import { nextViewerMediaBinding, playbackFailure, prepareViewerPlayback, type Re
 import { observeCompositedVideoFrame } from "../media/video-frame-proof";
 import { exactPeerSignalOwner } from "../media/route-transition";
 import { ViewerSfuRoute } from "../media/viewer-sfu-route";
+import { CloudflareSfuReplyBroker } from "../sfu/cloudflare-session";
+import { CloudflareSfuSubscriberTransport } from "../sfu/cloudflare-route-adapters";
 import type { PlaybackBufferStatus } from "../webrtc/receiver-buffer-target";
 import type {
   ConnectionMetrics,
@@ -130,6 +132,7 @@ import {
   ViewerRelay,
   type ViewerRelayPeerFactory,
 } from "../webrtc/viewer-relay";
+import { SfuSubscriber } from "../sfu/subscriber";
 import { NativeClient } from "../native/client";
 import { NativeClientConnection } from "../native/client-connection";
 import {
@@ -264,6 +267,8 @@ export function ViewerPage({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const peerRef = useRef<ViewerMediaPeer | null>(null);
   const viewerSfuRouteRef = useRef<ViewerSfuRoute | null>(null);
+  const cloudflareSfuBrokerRef = useRef(new CloudflareSfuReplyBroker());
+  const cloudflareSfuEnabledRef = useRef(false);
   const [screenBufferTargetMs, setScreenBufferTargetMs] = useState(() => readRoomPreferences().screenBufferTargetMs);
   const screenBufferTargetRef = useRef(screenBufferTargetMs);
   const [screenBufferStatus, setScreenBufferStatus] = useState<PlaybackBufferStatus>(null);
@@ -685,6 +690,7 @@ export function ViewerPage({
     };
     setAudioAvailable(null);
     void getRuntimeCapabilities().then(capabilities => {
+      if (active) cloudflareSfuEnabledRef.current = capabilities.cloudflareSfu === true;
       if (active && capabilities.audioPresence) signal.enableAudioPresence();
       if (active && capabilities.coPlayPresence) signal.enableCoPlayPresence();
       if (active && capabilities.roomInteractions) setInteractionSession(signal.enableRoomInteractions(capabilities.roomReactionIds));
@@ -1269,6 +1275,17 @@ export function ViewerPage({
             }
           }
         },
+        createSubscriber: (subscriberEvents) => cloudflareSfuEnabledRef.current
+          ? new CloudflareSfuSubscriberTransport(
+              subscriberEvents,
+              (message) => active && viewerSfuRoute === route ? signal.send(message) : false,
+              cloudflareSfuBrokerRef.current,
+              () => currentShareGeneration,
+            )
+          : new SfuSubscriber({
+              ...subscriberEvents,
+              send: (message) => active && viewerSfuRoute === route ? signal.send(message) : false,
+            }),
         send: (message) =>
           active && viewerSfuRoute === route ? signal.send(message) : false,
       });
@@ -1760,7 +1777,12 @@ export function ViewerPage({
         acceptRelayChildEvidence(message);
         return;
       }
+      if (message.type === "cloudflare-sfu") {
+        cloudflareSfuBrokerRef.current.accept(message);
+        return;
+      }
       if (message.type === "sfu-config") {
+        cloudflareSfuEnabledRef.current = message.cloudflareSfu === true;
         await ensureViewerSfuRoute().acceptConfig(message);
         return;
       }

@@ -616,3 +616,35 @@ func TestOriginConfigurationRejectsInvalidHostAndPort(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadCloudflareSFU(t *testing.T) {
+	configuration := mustLoad(t, map[string]string{
+		"CLOUDFLARE_SFU_APP_ID": "app-123",
+		"CLOUDFLARE_SFU_APP_SECRET": "secret-value",
+	})
+	if configuration.CloudflareSFU == nil {
+		t.Fatal("CloudflareSFU is nil")
+	}
+	if configuration.CloudflareSFU.AppID != "app-123" ||
+		configuration.CloudflareSFU.AppSecret != "secret-value" ||
+		configuration.CloudflareSFU.APIBaseURL != "https://rtc.live.cloudflare.com/v1" {
+		t.Fatalf("unexpected Cloudflare config: %+v", configuration.CloudflareSFU)
+	}
+}
+
+func TestLoadCloudflareSFURejectsPartialOrUnsafeConfiguration(t *testing.T) {
+	cases := []map[string]string{
+		{"CLOUDFLARE_SFU_APP_ID": "app-only"},
+		{"CLOUDFLARE_SFU_APP_SECRET": "secret-only"},
+		{"CLOUDFLARE_SFU_API_BASE_URL": "http://insecure.test"},
+		{"CLOUDFLARE_SFU_APP_ID": "app", "CLOUDFLARE_SFU_APP_SECRET": "secret", "CLOUDFLARE_SFU_API_BASE_URL": "http://insecure.test"},
+		{"CLOUDFLARE_SFU_APP_ID": "app", "CLOUDFLARE_SFU_APP_SECRET": "secret", "CLOUDFLARE_SFU_API_BASE_URL": "https://user:pass@example.test"},
+		{"CLOUDFLARE_SFU_APP_ID": "app/other", "CLOUDFLARE_SFU_APP_SECRET": "secret"},
+	}
+	for _, values := range cases {
+		if _, err := Load(values); err == nil {
+			t.Errorf("accepted invalid Cloudflare config: %#v", values)
+		}
+	}
+}
+

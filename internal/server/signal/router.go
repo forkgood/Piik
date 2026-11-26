@@ -68,6 +68,8 @@ type routerHooks struct {
 	routesChanged       func(roomID string)
 	voiceAllowed        func(roomID, peerID string) bool
 	videoGeneration     func(roomID string) string
+	cloudflareSfuEnabled func() bool
+	iceServers func() []protocol.IceServer
 	voiceDemandChanged  func(roomID string)
 	voiceCandidateReady func(roomID, connectionID string) bool
 	voiceRouteFailed    func(roomID, peerID string)
@@ -1736,4 +1738,12 @@ func nullString(value string) any {
 		return nil
 	}
 	return value
+}
+
+
+// configuredIceServers returns a detached route-config copy. Tests and routers
+// without an ICE provider retain an empty list and browser Cloudflare STUN fallback.
+func (r *router) configuredIceServers() []protocol.IceServer {
+  if r.hooks.iceServers == nil { return nil }
+  return append([]protocol.IceServer(nil), r.hooks.iceServers()...)
 }

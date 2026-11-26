@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/TNTcraftHIM/Piik/internal/diagnostics"
+	cloudflarerealtime "github.com/TNTcraftHIM/Piik/internal/server/cloudflare"
 	"github.com/TNTcraftHIM/Piik/internal/media/forwarding"
 	"github.com/TNTcraftHIM/Piik/internal/server/config"
 	"github.com/TNTcraftHIM/Piik/internal/server/room"
@@ -83,6 +84,9 @@ type Server struct {
 	frontend      http.Handler
 	logger        *slog.Logger
 	media         *sfu.Media
+	cloudflareSFU *cloudflarerealtime.Client
+	cloudflareBridge *cloudflarerealtime.Bridge
+	cloudflareRegistry *cloudflarerealtime.Registry
 	mediaMux      ice.UDPMux
 	sfuPublicIP   atomic.Pointer[string]
 	stopSFUDNS    func()
@@ -149,6 +153,23 @@ func New(options Options) (*Server, error) {
 		done:        make(chan error, 1),
 	}
 	server.listeners = append([]net.Listener(nil), options.Listeners...)
+	if configuration.CloudflareSFU != nil {
+		client, clientErr := cloudflarerealtime.New(
+			configuration.CloudflareSFU.AppID,
+			configuration.CloudflareSFU.AppSecret,
+			cloudflarerealtime.WithBaseURL(configuration.CloudflareSFU.APIBaseURL),
+		)
+		if clientErr != nil {
+			return nil, fmt.Errorf("Cloudflare Realtime client configuration: %w", clientErr)
+		}
+		server.cloudflareSFU = client
+		bridge, bridgeErr := cloudflarerealtime.NewBridge(client)
+		if bridgeErr != nil {
+			return nil, fmt.Errorf("Cloudflare Realtime bridge: %w", bridgeErr)
+		}
+		server.cloudflareBridge = bridge
+		server.cloudflareRegistry = cloudflarerealtime.NewRegistry()
+	}
 	if options.Assets != nil {
 		server.frontend = staticHandler(options.Assets, http.HandlerFunc(notFoundJSON))
 	}
@@ -156,6 +177,8 @@ func New(options Options) (*Server, error) {
 		Store:                     store,
 		EndpointMediaCopyCapacity: configuration.EndpointMediaCopyCapacity,
 		SfuOnly:                   configuration.SFU != nil && configuration.SFU.Only,
+		CloudflareBridge:          server.cloudflareBridge,
+		CloudflareRegistry:        server.cloudflareRegistry,
 		Ice:                       config.IceConfig(configuration),
 		// The prediction capability is separate from the wire-shaped ICE settings.
 		NATPredictionEnabled: configuration.NATPredictionEnabled,
@@ -173,6 +196,15 @@ func New(options Options) (*Server, error) {
 		MaxUnauthenticatedConnections: options.MaxUnauthenticatedSignalConnections,
 		AfterFunc:                     options.AfterFunc,
 		Logger:                        logger,
+	}
+	if configuration.CloudflareSFU != nil && configuration.SFU == nil {
+		server.signalOptions.SfuFallback = &signal.SfuFallback{
+			Media: sfu.NewSignalingOnlyRuntime(),
+			Admission: sfu.NewAdmission(sfu.AdmissionOptions{
+				IngressCapacity: room.Capacity,
+				EgressCapacity: room.Capacity * configuration.MaxViewersPerRoom,
+			}),
+		}
 	}
 	server.httpServer = &http.Server{
 		Handler:           server,

@@ -231,6 +231,7 @@ export const DEFAULT_ROUTE_POLICY = {
 
 export const runtimeCapabilitiesSchema = z.object({
   sfu: z.boolean().default(false),
+  cloudflareSfu: z.boolean().default(false),
   sfuOnly: z.boolean().optional(),
   natPrediction: z.boolean().default(false),
   roomInteractions: z.boolean().default(false),
@@ -334,6 +335,7 @@ export const iceCandidateSchema = z
     usernameFragment: z.string().max(256).nullable().optional(),
   })
   .strict();
+export type SessionDescription = z.infer<typeof sessionDescriptionSchema>;
 
 export const voiceDescriptionSchema = z.object({
   revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
@@ -431,6 +433,41 @@ export const sfuMediaSchema = z.object({
   (media.layers.length === 1 || media.layers.every((layer) => layer.rid !== "")),
 );
 export type SfuMedia = z.infer<typeof sfuMediaSchema>;
+
+const cloudflareSfuTrackSchema = z.object({
+  mid: z.string().min(1).max(128),
+  trackName: z.string().min(1).max(64),
+}).strict();
+export type CloudflareSfuTrack = z.infer<typeof cloudflareSfuTrackSchema>;
+
+const cloudflareSfuClientMessageSchema = z.object({
+  type: z.literal("cloudflare-sfu"),
+  kind: z.enum(["publish", "subscribe", "complete"]),
+  shareGeneration: opaqueIdSchema,
+  connectionId: opaqueIdSchema,
+  description: sessionDescriptionSchema.optional(),
+  tracks: z.array(cloudflareSfuTrackSchema).min(1).max(4).optional(),
+}).strict().refine((message) => {
+  if (message.kind === "publish") return message.description?.type === "offer" && !!message.tracks?.length &&
+    new Set(message.tracks.map(track => track.mid)).size === message.tracks.length &&
+    new Set(message.tracks.map(track => track.trackName)).size === message.tracks.length;
+  if (message.kind === "subscribe") return !message.description && !message.tracks;
+  return message.description?.type === "answer" && !message.tracks;
+});
+export type CloudflareSfuClientMessage = z.infer<typeof cloudflareSfuClientMessageSchema>;
+
+const cloudflareSfuServerMessageSchema = z.object({
+  type: z.literal("cloudflare-sfu"),
+  kind: z.enum(["published", "subscribed", "completed"]),
+  shareGeneration: opaqueIdSchema,
+  connectionId: opaqueIdSchema,
+  description: sessionDescriptionSchema.optional(),
+  tracks: z.array(cloudflareSfuTrackSchema).optional(),
+}).strict().refine((message) => {
+  if (message.kind === "completed") return !message.description && !message.tracks;
+  return !!message.description && !!message.tracks?.length;
+});
+export type CloudflareSfuServerMessage = z.infer<typeof cloudflareSfuServerMessageSchema>;
 
 const sfuSignalMessageSchema = z.object({
   type: z.literal("sfu-signal"),
@@ -847,7 +884,7 @@ export const senderQualityEvidenceMessageSchema = z
 export const sfuPublisherQualityEvidenceMessageSchema = z
   .object({
     type: z.literal("sfu-publisher-quality-evidence"),
-    publicationGeneration: opaqueIdSchema,
+    shareGeneration: opaqueIdSchema,
     routeRevision: mediaRouteRevisionSchema,
     state: z.enum(["unknown", "healthy", "degraded"]),
     sampleTimestampMs: z
@@ -1026,6 +1063,7 @@ export const clientMessageSchema = z.union([
     })
     .strict(),
   sfuSignalMessageSchema,
+  cloudflareSfuClientMessageSchema,
   z.object({ type: z.literal("request-route-diagnostic") }).strict(),
   viewerQualityEvidenceMessageSchema,
   senderQualityEvidenceMessageSchema,
@@ -1239,9 +1277,12 @@ export const serverMessageSchema = z.union([
       revision: mediaRouteRevisionSchema,
       publicationGeneration: opaqueIdSchema,
       connectionId: opaqueIdSchema,
+      cloudflareSfu: z.boolean().optional(),
+      iceServers: z.array(iceServerSchema).max(8).optional(),
     })
     .strict(),
   sfuSignalMessageSchema,
+  cloudflareSfuServerMessageSchema,
   z
     .object({
       type: z.literal("quality-settings"),

@@ -72,6 +72,14 @@ type SFUConfig struct {
 	Only       bool
 }
 
+// CloudflareSFUConfig contains backend-only credentials for Cloudflare Realtime.
+// AppSecret must never be serialized into capabilities or browser signaling.
+type CloudflareSFUConfig struct {
+	AppID      string
+	AppSecret  string
+	APIBaseURL string
+}
+
 // Config describes runtime configuration. Zero values mean open site
 // access, process-memory rooms, and no SFU fallback.
 type Config struct {
@@ -89,6 +97,7 @@ type Config struct {
 	MaxViewersPerRoom         int
 	EndpointMediaCopyCapacity int
 	SFU                       *SFUConfig
+	CloudflareSFU             *CloudflareSFUConfig
 	STUNURLs                  []string
 	// STUNListenAddresses belongs to the application lifecycle. Pure LAN binds
 	// its selected interface; public-link discovery URLs never create listeners.
@@ -194,6 +203,10 @@ func Load(env map[string]string) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	cloudflareSFU, err := parseCloudflareSFU(env)
+	if err != nil {
+		return Config{}, err
+	}
 
 	if environment == EnvironmentProduction && len(stunURLs) == 0 {
 		return Config{}, errors.New("STUN is required in production")
@@ -221,6 +234,7 @@ func Load(env map[string]string) (Config, error) {
 		MaxViewersPerRoom:         int(maxViewersPerRoom),
 		EndpointMediaCopyCapacity: int(endpointMediaCopyCapacity),
 		SFU:                       sfu,
+		CloudflareSFU:             cloudflareSFU,
 		STUNURLs:                  stunURLs,
 		STUNListenAddresses:       stunListeners,
 		NATPredictionEnabled:      natPredictionEnabled,
@@ -288,6 +302,31 @@ func parseRoomDatabasePath(value string) (string, error) {
 		return "", errors.New("ROOM_DATABASE_PATH must be an absolute file path")
 	}
 	return path, nil
+}
+
+func parseCloudflareSFU(env map[string]string) (*CloudflareSFUConfig, error) {
+	appID := strings.TrimSpace(env["CLOUDFLARE_SFU_APP_ID"])
+	appSecret := strings.TrimSpace(env["CLOUDFLARE_SFU_APP_SECRET"])
+	if appID == "" && appSecret == "" {
+		if raw, present := env["CLOUDFLARE_SFU_API_BASE_URL"]; present && strings.TrimSpace(raw) != "" {
+			return nil, errors.New("CLOUDFLARE_SFU_API_BASE_URL requires CLOUDFLARE_SFU_APP_ID and CLOUDFLARE_SFU_APP_SECRET")
+		}
+		return nil, nil
+	}
+	if appID == "" || appSecret == "" {
+		return nil, errors.New("CLOUDFLARE_SFU_APP_ID and CLOUDFLARE_SFU_APP_SECRET must be configured together")
+	}
+	if strings.ContainsAny(appID, "/?#") || strings.ContainsAny(appID, "\x00\r\n") {
+		return nil, errors.New("CLOUDFLARE_SFU_APP_ID contains invalid characters")
+	}
+	baseURL := strings.TrimSpace(env["CLOUDFLARE_SFU_API_BASE_URL"])
+	if baseURL == "" { baseURL = "https://rtc.live.cloudflare.com/v1" }
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" {
+		return nil, errors.New("CLOUDFLARE_SFU_API_BASE_URL must be an HTTPS URL without credentials, query, or fragment")
+	}
+	return &CloudflareSFUConfig{AppID: appID, AppSecret: appSecret, APIBaseURL: strings.TrimRight(baseURL, "/")}, nil
 }
 
 func parseSFU(env map[string]string) (*SFUConfig, error) {

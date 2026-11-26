@@ -186,6 +186,7 @@ func (v *RoutePolicy) UnmarshalJSON(data []byte) error {
 // RuntimeCapabilities mirrors runtimeCapabilitiesSchema.
 type RuntimeCapabilities struct {
 	Sfu                        bool     `json:"sfu"`
+	CloudflareSfu              bool     `json:"cloudflareSfu,omitempty"`
 	SfuOnly                    bool     `json:"sfuOnly,omitempty"`
 	NatPrediction              bool     `json:"natPrediction"`
 	RoomInteractions           bool     `json:"roomInteractions,omitempty"`
@@ -212,12 +213,12 @@ func (v *RuntimeCapabilities) UnmarshalJSON(data []byte) error {
 	if present == nil {
 		return errors.New("runtime capabilities must be an object")
 	}
-	if err := present.optional("sfu", "sfuOnly", "roomInteractions", "roomVoice", "roomVoiceListeningPresence", "roomVoiceBitrate", "relayVolunteer", "roomRelayCapacity", "hostRoomSession", "natPrediction", "remoteInput", "viewerRouteSelection", "audioPresence", "coPlayPresence", "roomReactionIds"); err != nil {
+	if err := present.optional("sfu", "sfuOnly", "cloudflareSfu", "roomInteractions", "roomVoice", "roomVoiceListeningPresence", "roomVoiceBitrate", "relayVolunteer", "roomRelayCapacity", "hostRoomSession", "natPrediction", "remoteInput", "viewerRouteSelection", "audioPresence", "coPlayPresence", "roomReactionIds"); err != nil {
 
 		return err
 	}
 	for key, target := range map[string]*bool{
-		"sfu": &v.Sfu, "sfuOnly": &v.SfuOnly, "natPrediction": &v.NatPrediction,
+		"sfu": &v.Sfu, "sfuOnly": &v.SfuOnly, "cloudflareSfu": &v.CloudflareSfu, "natPrediction": &v.NatPrediction,
 		"roomInteractions": &v.RoomInteractions, "hostRoomSession": &v.HostRoomSession,
 		"roomVoice":                  &v.RoomVoice,
 		"roomVoiceListeningPresence": &v.RoomVoiceListeningPresence,

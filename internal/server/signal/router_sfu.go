@@ -169,8 +169,11 @@ func (r *router) sendFreshSfuConfig(participant authenticatedRouteParticipant) {
 	r.hooks.sendToSession(participant.sessionID, protocol.SfuConfigMessage{
 		Type: "sfu-config", Revision: protocol.Int(revision),
 		PublicationGeneration: publication.Generation, ConnectionID: connectionID,
+		CloudflareSfu: r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled(),
+		IceServers: r.configuredIceServers(),
 	})
-	if participant.role == protocol.RoleHost && publication.Resource != nil {
+	if participant.role == protocol.RoleHost && publication.Resource != nil &&
+		!(r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled()) {
 		if active, err := r.sfu.media.PublicationDemand(resourceFence(publication.Resource), connectionID); err == nil {
 			count := protocol.Int(active)
 			r.hooks.sendToSession(participant.sessionID, protocol.SfuSignalMessage{
@@ -209,7 +212,9 @@ func (r *router) prepareSfuVideoAttachment(roomID string, operation *route.Opera
 		return
 	}
 	config := protocol.SfuConfigMessage{Type: "sfu-config", Revision: protocol.Int(operation.Current.Revision),
-		PublicationGeneration: publication.Generation}
+		PublicationGeneration: publication.Generation,
+		CloudflareSfu: r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled(),
+		IceServers: r.configuredIceServers()}
 	config.ConnectionID = publication.ConnectionID
 	r.hooks.sendToSession(host.SessionID, config)
 	config.ConnectionID = operation.Current.ConnectionID

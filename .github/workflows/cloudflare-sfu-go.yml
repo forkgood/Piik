@@ -1,0 +1,109 @@
+name: Cloudflare SFU checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cloudflare-sfu-go.yml"
+      - "internal/server/cloudflare/**"
+      - "internal/server/config/**"
+      - "internal/server/app/**"
+      - "internal/server/protocol/**"
+      - "internal/server/signal/**"
+      - "internal/server/sfu/**"
+      - "src/shared/protocol.ts"
+      - "src/client/sfu/cloudflare-session.ts"
+      - "src/client/sfu/cloudflare-route-adapters.ts"
+      - "src/client/pages/HostPage.tsx"
+      - "src/client/pages/ViewerPage.tsx"
+      - "tests/cloudflare-session.test.ts"
+      - "src/client/sfu/cloudflare-sdp.ts"
+      - "tests/cloudflare-sdp.test.ts"
+      - "src/client/webrtc/remote-input-channel.ts"
+      - "tests/remote-input-channel.test.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "go.mod"
+      - "go.sum"
+  push:
+    branches:
+      - feature/cloudflare-realtime-sfu
+    paths:
+      - ".github/workflows/cloudflare-sfu-go.yml"
+      - "internal/server/cloudflare/**"
+      - "internal/server/config/**"
+      - "internal/server/app/**"
+      - "internal/server/protocol/**"
+      - "internal/server/signal/**"
+      - "src/shared/protocol.ts"
+      - "src/client/sfu/cloudflare-session.ts"
+      - "src/client/sfu/cloudflare-route-adapters.ts"
+      - "src/client/pages/HostPage.tsx"
+      - "src/client/pages/ViewerPage.tsx"
+      - "tests/cloudflare-session.test.ts"
+      - "src/client/sfu/cloudflare-sdp.ts"
+      - "tests/cloudflare-sdp.test.ts"
+      - "src/client/webrtc/remote-input-channel.ts"
+      - "tests/remote-input-channel.test.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "go.mod"
+      - "go.sum"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-sfu-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Format Cloudflare Go package
+        run: gofmt -w internal/server/cloudflare/*.go
+
+      - name: Test Cloudflare API and lifecycle
+        run: go test ./internal/server/cloudflare
+
+      - name: Test server configuration
+        run: go test ./internal/server/config
+
+      - name: Test signaling-only SFU runtime
+        run: go test ./internal/server/sfu
+
+      - name: Test signaling and protocol integration
+        run: go test ./internal/server/protocol ./internal/server/signal
+
+      - name: Test application composition
+        run: go test ./internal/server/app
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Type-check browser sources
+        run: npm run typecheck
+
+      - name: Test Cloudflare SDP negotiation
+        run: npx vitest run tests/cloudflare-sdp.test.ts tests/cloudflare-session.test.ts tests/remote-input-channel.test.ts

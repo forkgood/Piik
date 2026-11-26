@@ -4,11 +4,14 @@ package signal
 // with Server.mu held, so each effect observes the current room membership.
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/coder/websocket"
+
+	cloudflarerealtime "github.com/TNTcraftHIM/Piik/internal/server/cloudflare"
 
 	"github.com/TNTcraftHIM/Piik/internal/server/protocol"
 	"github.com/TNTcraftHIM/Piik/internal/server/room"
@@ -153,11 +156,13 @@ func (s *Server) handleDisconnect(sess *session) {
 	s.disconnectRoomVoice(disconnected.RoomID, disconnected.PeerID, sess.sessionID)
 	s.refreshRemoteInputMembers(disconnected.RoomID)
 	if disconnected.Role == protocol.RoleHost {
+		s.retireCloudflarePeer(disconnected.RoomID, s.shares[disconnected.RoomID].generation, disconnected.PeerID, sess.sessionID)
 		s.broadcastHostStatus(disconnected.RoomID, false, false)
 		s.sendViewerPresence(disconnected.RoomID)
 		return
 	}
 
+	s.retireCloudflarePeer(disconnected.RoomID, s.shares[disconnected.RoomID].generation, disconnected.PeerID, sess.sessionID)
 	s.sendViewerPresence(disconnected.RoomID)
 
 	// The registered pointer rejects stale grace callbacks; the store then
@@ -188,6 +193,7 @@ func (s *Server) handleDisconnect(sess *session) {
 // The share generation deliberately survives.
 func (s *Server) stopSharing(roomID string) {
 	if current, ok := s.shares[roomID]; ok {
+		s.retireCloudflareShare(roomID, current.generation)
 		if host, connected := s.store.GetConnectedHost(roomID); connected {
 			if sess := s.sessionsByID[host.SessionID]; sess != nil && sess.authenticated != nil &&
 				sess.authenticated.shareGeneration == current.generation {
@@ -226,6 +232,9 @@ func (s *Server) abandonRoom(roomID string) error {
 // closeRoom closes the host session first, then
 // viewers in store order, each told room-closed then closed with 1000.
 func (s *Server) closeRoom(closed room.ClosedRoom) {
+	if current, ok := s.shares[closed.RoomID]; ok {
+		s.retireCloudflareShare(closed.RoomID, current.generation)
+	}
 	s.closeRoomVoice(closed.RoomID)
 	s.clearRoomGraceTimers(closed.RoomID)
 	s.clearRoomViewerEvidence(closed.RoomID)
@@ -286,6 +295,10 @@ func (s *Server) revokeGrantViewers(roomID string, update room.ViewerGrantUpdate
 // before the close so queued callbacks of the old generation cannot route
 // signaling after the persistent authorization commit.
 func (s *Server) closeRevokedViewerSession(sessionID string) {
+	if sess := s.sessionsByID[sessionID]; sess != nil && sess.authenticated != nil {
+		auth := sess.authenticated
+		s.retireCloudflarePeer(auth.roomID, s.shares[auth.roomID].generation, auth.peerID, sessionID)
+	}
 	sess := s.sessionsByID[sessionID]
 	if sess == nil {
 		return
@@ -343,4 +356,44 @@ func (s *Server) clearViewerEvidence(roomID, viewerPeerID string) {
 	key := viewerKey(roomID, viewerPeerID)
 	delete(s.viewerQualityEvidenceGates, key)
 	delete(s.viewerQualityEvidenceAttempts, key)
+}
+
+
+// retireCloudflarePeer removes exact signaling-session ownership while Server.mu
+// is held, then performs network cleanup asynchronously without holding that lock.
+func (s *Server) retireCloudflarePeer(roomID, generation, peerID, signalingID string) {
+	if s.cloudflareRegistry == nil || generation == "" || signalingID == "" {
+		return
+	}
+	s.cleanupCloudflareResources(s.cloudflareRegistry.RetirePeer(roomID, generation, peerID, signalingID))
+}
+
+// retireCloudflareShare fences every resource from one exact share generation.
+func (s *Server) retireCloudflareShare(roomID, generation string) {
+	if s.cloudflareRegistry == nil || generation == "" {
+		return
+	}
+	s.cleanupCloudflareResources(s.cloudflareRegistry.RetireShare(roomID, generation))
+}
+
+// cleanupCloudflareResources receives immutable snapshots; no Cloudflare HTTP
+// request is made while the signaling mutex or registry mutex is held.
+func (s *Server) cleanupCloudflareResources(resources []cloudflarerealtime.SessionResource) {
+	if s.cloudflareBridge == nil || len(resources) == 0 {
+		return
+	}
+	go func() {
+		for _, resource := range resources {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err := s.cloudflareBridge.CloseResources(ctx, resource)
+			cancel()
+			if err != nil {
+				s.logger.Warn("Cloudflare Realtime resource cleanup failed",
+					"room", resource.Owner.RoomID,
+					"shareGeneration", resource.Owner.ShareGeneration,
+					"role", resource.Owner.Role,
+					"error", err)
+			}
+		}
+	}()
 }

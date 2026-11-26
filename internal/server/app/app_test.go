@@ -83,6 +83,28 @@ func newServer(t *testing.T, options Options) *Server {
 	return server
 }
 
+func TestNewInitializesCloudflareRealtimeClientWithoutNetworkAccess(t *testing.T) {
+	configuration := testConfig(t)
+	configuration.CloudflareSFU = &config.CloudflareSFUConfig{
+		AppID: "test-app",
+		AppSecret: "test-secret",
+		APIBaseURL: "https://rtc.live.cloudflare.com/v1",
+	}
+	server, err := New(Options{Config: configuration, HeartbeatIntervalMs: 60_000})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if server.cloudflareSFU == nil {
+		t.Fatal("Cloudflare Realtime client was not initialized")
+	}
+	if server.signalOptions.SfuFallback == nil {
+		t.Fatal("Cloudflare configuration did not enable signaling-only SFU routing")
+	}
+	if err := server.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
 func TestApplicationPagesCannotBeEmbeddedWithoutAProxy(t *testing.T) {
 	server := newServer(t, Options{})
 	for _, accepting := range []bool{false, true} {
@@ -368,6 +390,18 @@ func TestCapabilitiesReportServicesDisabledByDefault(t *testing.T) {
 	server.do(http.MethodGet, "/api/capabilities").
 		expect(http.StatusOK, `{"sfu":false,"natPrediction":false,"roomInteractions":true,"roomVoice":true,"roomVoiceListeningPresence":true,"roomVoiceBitrate":true,"relayVolunteer":true,"roomRelayCapacity":true,"hostRoomSession":true,"remoteInput":true,"viewerRouteSelection":true,"audioPresence":true,"coPlayPresence":true,"roomReactionIds":["thumbsup","thumbsdown","laugh","clown","eyeroll","eyes","wow","wave","heart","clap","party","fire","star","sleep","tomato","poop"]}`)
 
+}
+
+func TestCapabilitiesReportCloudflareSFUWithoutPionListener(t *testing.T) {
+  configuration := testConfig(t)
+  configuration.CloudflareSFU = &config.CloudflareSFUConfig{
+    AppID: "test-app",
+    AppSecret: "test-secret",
+    APIBaseURL: "https://rtc.live.cloudflare.com/v1",
+  }
+  server := start(t, Options{Config: configuration})
+  server.do(http.MethodGet, "/api/capabilities").
+    expect(http.StatusOK, `{"sfu":true,"cloudflareSfu":true,"natPrediction":false,"roomInteractions":true,"roomVoice":true,"roomVoiceListeningPresence":true,"roomVoiceBitrate":true,"relayVolunteer":true,"roomRelayCapacity":true,"hostRoomSession":true,"remoteInput":true,"viewerRouteSelection":true,"audioPresence":true,"coPlayPresence":true,"roomReactionIds":["thumbsup","thumbsdown","laugh","clown","eyeroll","eyes","wow","wave","heart","clap","party","fire","star","sleep","tomato","poop"]}`)
 }
 
 func TestCapabilitiesReportSFUOnlyPolicy(t *testing.T) {

@@ -21,6 +21,7 @@ const (
 	SignalingProtocol           = "piik-v24"
 	RoomCodeLength              = 4
 	MaxMediaRouteRevision       = MaxSafeInteger
+	MaxIceServers               = 8
 	MaxIceServerURLs            = 8
 
 	MaxNatPredictionAuxiliaryStunURLs = 2
