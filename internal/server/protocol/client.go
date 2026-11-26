@@ -282,6 +282,8 @@ func DecodeClientMessage(data []byte) (ClientMessage, error) {
 		return decodeRefreshSfu(data)
 	case "sfu-signal":
 		return decodeSfuSignal(data)
+	case "cloudflare-sfu":
+		return decodeCloudflareSFU(data)
 	case "request-route-diagnostic":
 		return decodeEmptyClientMessage(data, RequestRouteDiagnosticMessage{Type: messageType})
 	case "viewer-quality-evidence":
