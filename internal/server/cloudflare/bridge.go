@@ -185,3 +185,134 @@ func validateTrackResults(requested []Track, returned []TrackResult) error {
 	}
 	return nil
 }
+
+
+// DataChannelAllocation is the endpoint-local negotiated channel identifier.
+// Each Cloudflare Session has its own PeerConnection and its own ID namespace.
+type DataChannelAllocation struct {
+	Name string
+	ID   int
+}
+
+// EstablishDataChannel creates Cloudflare's reserved remote transport (for
+// example "server-events"). The returned SDP, when present, must be completed
+// by the browser before the channel can be used.
+func (b *Bridge) EstablishDataChannel(ctx context.Context, sessionID, name string) (DataChannelAllocation, *SessionDescription, error) {
+	var allocation DataChannelAllocation
+	var description *SessionDescription
+	if sessionID == "" || name == "" {
+		return allocation, nil, errors.New("Cloudflare session and data channel name are required")
+	}
+	err := b.queue.Do(ctx, sessionID, func(operationCtx context.Context) error {
+		response, err := b.client.EstablishDataChannel(operationCtx, sessionID, name)
+		if err != nil {
+			return err
+		}
+		if failures := response.ResourceErrors(); len(failures) != 0 {
+			return fmt.Errorf("Cloudflare data channel establishment failed: %v", failures)
+		}
+		if response.DataChannel == nil || response.DataChannel.ID < 0 ||
+			response.DataChannel.DataChannelName != name {
+			return errors.New("Cloudflare did not return the requested data channel allocation")
+		}
+		allocation = DataChannelAllocation{Name: name, ID: response.DataChannel.ID}
+		if response.SessionDescription != nil {
+			copy := *response.SessionDescription
+			description = &copy
+		}
+		return nil
+	})
+	return allocation, description, err
+}
+
+// AllocateDataChannels creates endpoint-local negotiated channels. The caller
+// must create matching RTCPeerConnection channels with negotiated:true and
+// each returned ID; IDs are not shared between publisher and subscriber.
+func (b *Bridge) AllocateDataChannels(ctx context.Context, sessionID string, channels []DataChannel) ([]DataChannelAllocation, *SessionDescription, error) {
+	if sessionID == "" || len(channels) == 0 {
+		return nil, nil, errors.New("Cloudflare session and data channels are required")
+	}
+	var allocations []DataChannelAllocation
+	var description *SessionDescription
+	err := b.queue.Do(ctx, sessionID, func(operationCtx context.Context) error {
+		response, err := b.client.NewDataChannels(operationCtx, sessionID, channels)
+		if err != nil {
+			return err
+		}
+		if failures := response.ResourceErrors(); len(failures) != 0 {
+			return fmt.Errorf("Cloudflare data channel allocation failed: %v", failures)
+		}
+		if len(response.DataChannels) != len(channels) {
+			return fmt.Errorf("Cloudflare returned %d data channels for %d requested", len(response.DataChannels), len(channels))
+		}
+		seen := make(map[int]struct{}, len(response.DataChannels))
+		for _, result := range response.DataChannels {
+			if result.ID < 0 || result.DataChannelName == "" {
+				return errors.New("Cloudflare returned an invalid data channel allocation")
+			}
+			if _, ok := seen[result.ID]; ok {
+				return fmt.Errorf("Cloudflare returned duplicate data channel ID %d", result.ID)
+			}
+			seen[result.ID] = struct{}{}
+			matched := false
+			for _, requested := range channels {
+				if requested.DataChannelName == result.DataChannelName &&
+					requested.Location == result.Location &&
+					(requested.Location != "remote" || requested.SessionID == result.SessionID) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return fmt.Errorf("Cloudflare returned unexpected data channel %q", result.DataChannelName)
+			}
+			allocations = append(allocations, DataChannelAllocation{Name: result.DataChannelName, ID: result.ID})
+		}
+		if response.SessionDescription != nil {
+			copy := *response.SessionDescription
+			description = &copy
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return allocations, description, nil
+}
+
+// SetRemoteDataChannelReply grants or revokes the viewer-to-publisher return
+// path. Authorization must be checked by the signaling owner before calling.
+func (b *Bridge) SetRemoteDataChannelReply(ctx context.Context, subscriberSessionID, publisherSessionID, name string, canReply bool) error {
+	if subscriberSessionID == "" || publisherSessionID == "" || name == "" {
+		return errors.New("Cloudflare subscriber, publisher, and data channel name are required")
+	}
+	return b.queue.Do(ctx, subscriberSessionID, func(operationCtx context.Context) error {
+		response, err := b.client.UpdateDataChannels(operationCtx, subscriberSessionID, []DataChannel{{
+			Location: "remote", SessionID: publisherSessionID, DataChannelName: name, CanReply: &canReply,
+		}})
+		if err != nil {
+			return err
+		}
+		if failures := response.ResourceErrors(); len(failures) != 0 {
+			return fmt.Errorf("Cloudflare data channel permission update failed: %v", failures)
+		}
+		return nil
+	})
+}
+
+// CloseDataChannels closes only IDs allocated on this exact endpoint session.
+func (b *Bridge) CloseDataChannels(ctx context.Context, sessionID string, ids []int) error {
+	if sessionID == "" || len(ids) == 0 {
+		return nil
+	}
+	return b.queue.Do(ctx, sessionID, func(operationCtx context.Context) error {
+		response, err := b.client.CloseDataChannels(operationCtx, sessionID, ids)
+		if err != nil {
+			return err
+		}
+		if failures := response.ResourceErrors(); len(failures) != 0 {
+			return fmt.Errorf("Cloudflare data channel cleanup failed: %v", failures)
+		}
+		return nil
+	})
+}
