@@ -2,13 +2,10 @@ package signal
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	cloudflarerealtime "github.com/TNTcraftHIM/Piik/internal/server/cloudflare"
-	"github.com/TNTcraftHIM/Piik/internal/server/protocol"
-	"github.com/coder/websocket"
-)
+	"github.com/TNTcraftHIM/Piik/internal/server/protocol")
 
 // handleCloudflareSFU is called with Server.mu held. It validates authority
 // synchronously, then delegates all Cloudflare network work to a goroutine.
@@ -168,5 +165,3 @@ func tracksFromProtocol(tracks []protocol.CloudflareSFUTrack, location, sessionI
 	return result
 }
 
-var _ = errors.Is
-var _ = websocket.StatusInternalError
