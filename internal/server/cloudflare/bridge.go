@@ -316,3 +316,13 @@ func (b *Bridge) CloseDataChannels(ctx context.Context, sessionID string, ids []
 		return nil
 	})
 }
+
+
+// CloseResources performs best-effort cleanup for one immutable registry
+// snapshot. Both exact resource sets are attempted even if one API operation
+// fails; callers should log the joined error without restoring stale ownership.
+func (b *Bridge) CloseResources(ctx context.Context, resource SessionResource) error {
+	trackErr := b.CloseTracks(ctx, resource.SessionID, resource.MIDs)
+	channelErr := b.CloseDataChannels(ctx, resource.SessionID, resource.ChannelIDs)
+	return errors.Join(trackErr, channelErr)
+}
