@@ -210,3 +210,32 @@ func TestBridgeNegotiatedDataChannelLifecycle(t *testing.T) {
 		t.Fatalf("unexpected API calls: %#v", calls)
 	}
 }
+
+
+func TestBridgeCloseResourcesAttemptsTracksAndChannels(t *testing.T) {
+	var trackClosed, channelClosed bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/apps/test/sessions/session-1/tracks/close":
+			trackClosed = true
+			_ = json.NewEncoder(w).Encode(TracksResponse{})
+		case "/v1/apps/test/sessions/session-1/datachannels/close":
+			channelClosed = true
+			_ = json.NewEncoder(w).Encode(DataChannelsResponse{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, err := New("test", "secret", WithBaseURL(server.URL+"/v1"), WithHTTPClient(server.Client()))
+	if err != nil { t.Fatal(err) }
+	bridge, err := NewBridge(client)
+	if err != nil { t.Fatal(err) }
+	err = bridge.CloseResources(context.Background(), SessionResource{
+		SessionID:"session-1", MIDs:[]string{"0"}, ChannelIDs:[]int{7},
+	})
+	if err != nil { t.Fatal(err) }
+	if !trackClosed || !channelClosed {
+		t.Fatalf("cleanup incomplete: tracks=%v channels=%v", trackClosed, channelClosed)
+	}
+}
