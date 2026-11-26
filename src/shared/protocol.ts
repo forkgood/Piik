@@ -432,6 +432,41 @@ export const sfuMediaSchema = z.object({
 );
 export type SfuMedia = z.infer<typeof sfuMediaSchema>;
 
+const cloudflareSfuTrackSchema = z.object({
+  mid: z.string().min(1).max(128),
+  trackName: z.string().min(1).max(64),
+}).strict();
+
+const cloudflareSfuClientMessageSchema = z.object({
+  type: z.literal("cloudflare-sfu"),
+  kind: z.enum(["publish", "subscribe", "complete"]),
+  publicationGeneration: opaqueIdSchema,
+  connectionId: opaqueIdSchema,
+  description: sessionDescriptionSchema.optional(),
+  tracks: z.array(cloudflareSfuTrackSchema).min(1).max(4).optional(),
+}).strict().refine((message) => {
+  if (message.kind === "publish") return message.description?.type === "offer" && !!message.tracks?.length &&
+    new Set(message.tracks.map(track => track.mid)).size === message.tracks.length &&
+    new Set(message.tracks.map(track => track.trackName)).size === message.tracks.length;
+  if (message.kind === "subscribe") return !message.description && !message.tracks;
+  return message.description?.type === "answer" && !message.tracks;
+});
+export type CloudflareSfuClientMessage = z.infer<typeof cloudflareSfuClientMessageSchema>;
+
+const cloudflareSfuServerMessageSchema = z.object({
+  type: z.literal("cloudflare-sfu"),
+  kind: z.enum(["published", "subscribed", "completed"]),
+  publicationGeneration: opaqueIdSchema,
+  connectionId: opaqueIdSchema,
+  sessionId: opaqueIdSchema.optional(),
+  description: sessionDescriptionSchema.optional(),
+  tracks: z.array(cloudflareSfuTrackSchema).optional(),
+}).strict().refine((message) => {
+  if (message.kind === "completed") return !message.sessionId && !message.description && !message.tracks;
+  return !!message.sessionId && !!message.description && !!message.tracks?.length;
+});
+export type CloudflareSfuServerMessage = z.infer<typeof cloudflareSfuServerMessageSchema>;
+
 const sfuSignalMessageSchema = z.object({
   type: z.literal("sfu-signal"),
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
@@ -1026,6 +1061,7 @@ export const clientMessageSchema = z.union([
     })
     .strict(),
   sfuSignalMessageSchema,
+  cloudflareSfuClientMessageSchema,
   z.object({ type: z.literal("request-route-diagnostic") }).strict(),
   viewerQualityEvidenceMessageSchema,
   senderQualityEvidenceMessageSchema,
@@ -1242,6 +1278,7 @@ export const serverMessageSchema = z.union([
     })
     .strict(),
   sfuSignalMessageSchema,
+  cloudflareSfuServerMessageSchema,
   z
     .object({
       type: z.literal("quality-settings"),
