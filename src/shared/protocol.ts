@@ -472,7 +472,7 @@ export type CloudflareSfuServerMessage = z.infer<typeof cloudflareSfuServerMessa
 const sfuSignalMessageSchema = z.object({
   type: z.literal("sfu-signal"),
   revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-  shareGeneration: opaqueIdSchema,
+  publicationGeneration: opaqueIdSchema,
   connectionId: opaqueIdSchema,
   kind: z.enum(["subscribe", "description", "candidate", "media", "layers"]),
   description: sessionDescriptionSchema.optional(),
