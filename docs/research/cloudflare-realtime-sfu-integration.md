@@ -100,3 +100,8 @@ RTCDataChannel object works through Cloudflare.
 
 The initial integration should be opt-in and should not change the existing
 P2P-first or Pion-SFU behavior for deployments without Cloudflare configuration.
+
+
+## Track lifecycle hardening
+
+The negotiation bridge now validates returned track identities (stable track name, location, MID uniqueness, and publisher session for remote subscriptions) before callers may register them. It also exposes force-close cleanup for the exact recorded MIDs, serialized with other mutations on that Cloudflare session. This is a cleanup primitive, not yet wired to Piik disconnect/share/room lifecycle hooks.
