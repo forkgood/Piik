@@ -1,4 +1,4 @@
-name: Cloudflare SFU Go checks
+name: Cloudflare SFU checks
 
 on:
   pull_request:
@@ -7,6 +7,10 @@ on:
       - "internal/server/cloudflare/**"
       - "internal/server/config/**"
       - "internal/server/app/**"
+      - "src/client/sfu/cloudflare-sdp.ts"
+      - "tests/cloudflare-sdp.test.ts"
+      - "package.json"
+      - "package-lock.json"
       - "go.mod"
       - "go.sum"
   push:
@@ -17,6 +21,10 @@ on:
       - "internal/server/cloudflare/**"
       - "internal/server/config/**"
       - "internal/server/app/**"
+      - "src/client/sfu/cloudflare-sdp.ts"
+      - "tests/cloudflare-sdp.test.ts"
+      - "package.json"
+      - "package-lock.json"
       - "go.mod"
       - "go.sum"
 
@@ -24,7 +32,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-sfu-go-${{ github.ref }}
+  group: cloudflare-sfu-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,7 +51,7 @@ jobs:
       - name: Format Cloudflare Go package
         run: gofmt -w internal/server/cloudflare/*.go
 
-      - name: Test Cloudflare API client
+      - name: Test Cloudflare API and lifecycle
         run: go test ./internal/server/cloudflare
 
       - name: Test server configuration
@@ -51,3 +59,24 @@ jobs:
 
       - name: Test application composition
         run: go test ./internal/server/app
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Type-check browser sources
+        run: npm run typecheck
+
+      - name: Test Cloudflare SDP negotiation
+        run: npx vitest run tests/cloudflare-sdp.test.ts
