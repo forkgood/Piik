@@ -601,9 +601,9 @@ func TestForwardedEvidenceAndSfuConfig(t *testing.T) {
 			`"presentationEpoch":0},"sequence":0,"windowMs":2000,"metrics":`+metrics+`}`), false)
 
 	assertServerMessage(t, "sfu config",
-		[]byte(`{"type":"sfu-config","revision":9,"publicationGeneration":"publication_12345678","connectionId":"connection_12345678"}`), true)
+		[]byte(`{"type":"sfu-config","revision":9,"shareGeneration":"publication_12345678","connectionId":"connection_12345678"}`), true)
 	assertServerMessage(t, "sfu config missing connection fence",
-		[]byte(`{"type":"sfu-config","revision":9,"publicationGeneration":"publication_12345678"}`), false)
+		[]byte(`{"type":"sfu-config","revision":9,"shareGeneration":"publication_12345678"}`), false)
 }
 
 // zod's z.number().int() accepts an integral JSON number in any spelling.
@@ -816,16 +816,16 @@ func TestDecodeRejectsUnknownEnvelopes(t *testing.T) {
 }
 
 func TestCloudflareSFUSignalingProtocol(t *testing.T) {
-	validPublish := `{"type":"cloudflare-sfu","kind":"publish","publicationGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"offer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"},{"mid":"1","trackName":"screen-audio"}]}`
+	validPublish := `{"type":"cloudflare-sfu","kind":"publish","shareGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"offer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"},{"mid":"1","trackName":"screen-audio"}]}`
 	if _, err := DecodeClientMessage([]byte(validPublish)); err != nil { t.Fatalf("valid publish rejected: %v", err) }
-	validSubscribe := `{"type":"cloudflare-sfu","kind":"subscribe","publicationGeneration":"share_generation_1","connectionId":"connection_123456"}`
+	validSubscribe := `{"type":"cloudflare-sfu","kind":"subscribe","shareGeneration":"share_generation_1","connectionId":"connection_123456"}`
 	if _, err := DecodeClientMessage([]byte(validSubscribe)); err != nil { t.Fatalf("valid subscribe rejected: %v", err) }
-	validComplete := `{"type":"cloudflare-sfu","kind":"complete","publicationGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"answer","sdp":"v=0"}}`
+	validComplete := `{"type":"cloudflare-sfu","kind":"complete","shareGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"answer","sdp":"v=0"}}`
 	if _, err := DecodeClientMessage([]byte(validComplete)); err != nil { t.Fatalf("valid completion rejected: %v", err) }
 	for _, invalid := range []string{
-		`{"type":"cloudflare-sfu","kind":"publish","publicationGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"answer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"}]}`,
-		`{"type":"cloudflare-sfu","kind":"subscribe","publicationGeneration":"share_generation_1","connectionId":"connection_123456","tracks":[{"mid":"0","trackName":"screen-video"}]}`,
-		`{"type":"cloudflare-sfu","kind":"publish","publicationGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"offer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"},{"mid":"0","trackName":"screen-audio"}]}`,
+		`{"type":"cloudflare-sfu","kind":"publish","shareGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"answer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"}]}`,
+		`{"type":"cloudflare-sfu","kind":"subscribe","shareGeneration":"share_generation_1","connectionId":"connection_123456","tracks":[{"mid":"0","trackName":"screen-video"}]}`,
+		`{"type":"cloudflare-sfu","kind":"publish","shareGeneration":"share_generation_1","connectionId":"connection_123456","description":{"type":"offer","sdp":"v=0"},"tracks":[{"mid":"0","trackName":"screen-video"},{"mid":"0","trackName":"screen-audio"}]}`,
 	} { if _, err := DecodeClientMessage([]byte(invalid)); err == nil { t.Errorf("invalid Cloudflare message accepted: %s", invalid) } }
 	response := CloudflareSFUServerMessage{Type:"cloudflare-sfu", Kind:"published", PublicationGeneration:"share_generation_1", ConnectionID:"connection_123456", SessionID:"cloudflare_session_1", Description:&SessionDescription{Type:"answer",SDP:"v=0"}, Tracks:[]CloudflareSFUTrack{{MID:"0",TrackName:"screen-video"}}}
 	encoded, err := EncodeServerMessage(response)
