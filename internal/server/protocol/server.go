@@ -530,13 +530,7 @@ func decodeRouteUpdate(data []byte) (ServerMessage, error) {
 			"type", "revision", "phase", "assignment", "candidate"); err != nil {
 			return nil, err
 		}
-		if err := present.optional("cloudflareSfu", "iceServers"); err != nil {
-		return nil, err
-	}
-	if len(message.IceServers) > MaxIceServers {
-		return nil, errors.New("too many SFU ICE servers")
-	}
-	if !validRevision(message.Revision) {
+		if !validRevision(message.Revision) {
 			return nil, errors.New("revision is out of range")
 		}
 		return message, nil
@@ -599,6 +593,12 @@ func decodeSfuConfig(data []byte) (ServerMessage, error) {
 	}
 	if err := present.require("type", "revision", "publicationGeneration", "connectionId"); err != nil {
 		return nil, err
+	}
+	if err := present.optional("cloudflareSfu", "iceServers"); err != nil {
+		return nil, err
+	}
+	if len(message.IceServers) > MaxIceServers {
+		return nil, errors.New("too many SFU ICE servers")
 	}
 	if !validRevision(message.Revision) {
 		return nil, errors.New("revision is out of range")
