@@ -133,7 +133,8 @@ type SfuConfigMessage struct {
 	Revision              Int    `json:"revision"`
 	PublicationGeneration string `json:"publicationGeneration"`
 	ConnectionID          string `json:"connectionId"`
-	CloudflareSfu         bool   `json:"cloudflareSfu,omitempty"`
+	CloudflareSfu         bool        `json:"cloudflareSfu,omitempty"`
+	IceServers            []IceServer `json:"iceServers,omitempty"`
 }
 
 // QualitySettingsMessage broadcasts the host's quality settings.
@@ -529,7 +530,13 @@ func decodeRouteUpdate(data []byte) (ServerMessage, error) {
 			"type", "revision", "phase", "assignment", "candidate"); err != nil {
 			return nil, err
 		}
-		if !validRevision(message.Revision) {
+		if err := present.optional("cloudflareSfu", "iceServers"); err != nil {
+		return nil, err
+	}
+	if len(message.IceServers) > MaxIceServers {
+		return nil, errors.New("too many SFU ICE servers")
+	}
+	if !validRevision(message.Revision) {
 			return nil, errors.New("revision is out of range")
 		}
 		return message, nil
