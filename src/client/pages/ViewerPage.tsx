@@ -1778,6 +1778,7 @@ export function ViewerPage({
         return;
       }
       if (message.type === "sfu-config") {
+        cloudflareSfuEnabledRef.current = message.cloudflareSfu === true;
         await ensureViewerSfuRoute().acceptConfig(message);
         return;
       }
