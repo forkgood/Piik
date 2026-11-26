@@ -1,0 +1,53 @@
+name: Cloudflare SFU Go checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cloudflare-sfu-go.yml"
+      - "internal/server/cloudflare/**"
+      - "internal/server/config/**"
+      - "internal/server/app/**"
+      - "go.mod"
+      - "go.sum"
+  push:
+    branches:
+      - feature/cloudflare-realtime-sfu
+    paths:
+      - ".github/workflows/cloudflare-sfu-go.yml"
+      - "internal/server/cloudflare/**"
+      - "internal/server/config/**"
+      - "internal/server/app/**"
+      - "go.mod"
+      - "go.sum"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-sfu-go-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Format Cloudflare Go package
+        run: gofmt -w internal/server/cloudflare/*.go
+
+      - name: Test Cloudflare API client
+        run: go test ./internal/server/cloudflare
+
+      - name: Test server configuration
+        run: go test ./internal/server/config
+
+      - name: Test application composition
+        run: go test ./internal/server/app
