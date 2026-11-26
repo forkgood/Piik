@@ -2,14 +2,14 @@ import type { CloudflareSfuClientMessage, CloudflareSfuServerMessage, Cloudflare
 import { createCloudflareAnswer, createCloudflareOffer } from "./cloudflare-sdp";
 
 export type CloudflareSfuSignaling = {
-  publicationGeneration: string;
+  shareGeneration: string;
   connectionId: string;
   send(message: CloudflareSfuClientMessage): void;
   waitForReply(kind: CloudflareSfuServerMessage["kind"], connectionId: string, signal: AbortSignal): Promise<CloudflareSfuServerMessage>;
 };
 
 function assertFence(reply: CloudflareSfuServerMessage, signaling: CloudflareSfuSignaling): void {
-  if (reply.publicationGeneration !== signaling.publicationGeneration || reply.connectionId !== signaling.connectionId) {
+  if (reply.shareGeneration !== signaling.shareGeneration || reply.connectionId !== signaling.connectionId) {
     throw new Error("Cloudflare SFU response does not match the active publication");
   }
 }
@@ -44,7 +44,7 @@ export async function createCloudflarePublisher(
       if (!transceiver?.mid) throw new Error("Cloudflare publisher transceiver has no MID");
       return { mid: transceiver.mid, trackName };
     });
-    signaling.send({ type: "cloudflare-sfu", kind: "publish", publicationGeneration: signaling.publicationGeneration,
+    signaling.send({ type: "cloudflare-sfu", kind: "publish", shareGeneration: signaling.shareGeneration,
       connectionId: signaling.connectionId, description: offer, tracks: localTracks });
     const reply = await signaling.waitForReply("published", signaling.connectionId, signal);
     assertFence(reply, signaling);
@@ -63,13 +63,13 @@ export async function createCloudflareSubscriber(
 ): Promise<{ pc: RTCPeerConnection; sessionId: string; tracks: CloudflareSfuTrack[] }> {
   pc.addEventListener("track", onTrack);
   return closeOnFailure(pc, (async () => {
-    signaling.send({ type: "cloudflare-sfu", kind: "subscribe", publicationGeneration: signaling.publicationGeneration, connectionId: signaling.connectionId });
+    signaling.send({ type: "cloudflare-sfu", kind: "subscribe", shareGeneration: signaling.shareGeneration, connectionId: signaling.connectionId });
     const reply = await signaling.waitForReply("subscribed", signaling.connectionId, signal);
     assertFence(reply, signaling);
     if (reply.kind !== "subscribed" || !reply.description || !reply.sessionId || !reply.tracks) throw new Error("Cloudflare subscriber response is incomplete");
     const gatheredAnswer = await createCloudflareAnswer(pc, description(reply.description), signal);
     const answer = { type: "answer" as const, sdp: gatheredAnswer.sdp ?? "" };
-    signaling.send({ type: "cloudflare-sfu", kind: "complete", publicationGeneration: signaling.publicationGeneration, connectionId: signaling.connectionId, description: answer });
+    signaling.send({ type: "cloudflare-sfu", kind: "complete", shareGeneration: signaling.shareGeneration, connectionId: signaling.connectionId, description: answer });
     const completed = await signaling.waitForReply("completed", signaling.connectionId, signal);
     assertFence(completed, signaling);
     if (completed.kind !== "completed") throw new Error("Cloudflare subscriber completion was not acknowledged");
