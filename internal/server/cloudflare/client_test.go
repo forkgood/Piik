@@ -17,8 +17,8 @@ func TestNewSessionKeepsSecretServerSideAndUsesBearerAuth(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer top-secret" {
 			t.Fatalf("authorization = %q", got)
 		}
-		if r.Header.Get("Content-Type") != "" {
-			t.Fatalf("unexpected content type for bodyless request")
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Fatalf("content type = %q", got)
 		}
 		_, _ = w.Write([]byte(`{"sessionId":"session-1"}`))
 	}))
