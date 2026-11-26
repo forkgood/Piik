@@ -69,6 +69,7 @@ type routerHooks struct {
 	voiceAllowed        func(roomID, peerID string) bool
 	videoGeneration     func(roomID string) string
 	cloudflareSfuEnabled func() bool
+	iceServers func() []protocol.IceServer
 	voiceDemandChanged  func(roomID string)
 	voiceCandidateReady func(roomID, connectionID string) bool
 	voiceRouteFailed    func(roomID, peerID string)
