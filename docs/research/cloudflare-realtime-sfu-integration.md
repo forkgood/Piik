@@ -28,6 +28,24 @@ as track operations; subscriber answers are submitted through renegotiation.
 Therefore the Cloudflare adapter needs a provider-specific negotiation contract
 rather than pretending that Cloudflare accepts Pion's per-candidate methods.
 
+## Current implementation checkpoint
+
+The repository branch now includes:
+
+- `CLOUDFLARE_SFU_APP_ID`, `CLOUDFLARE_SFU_APP_SECRET`, and optional
+  `CLOUDFLARE_SFU_API_BASE_URL` parsing in server configuration.
+- Validation that the App ID and App Secret are supplied together and that the
+  API base URL uses HTTPS.
+- Construction of the Cloudflare API client during application composition.
+  No API request is made at startup, and the App Secret is not included in
+  runtime capabilities.
+- A Go API client for session creation/inspection, track create/update/close,
+  renegotiation, and DataChannel transport/allocation/update/close operations.
+
+This checkpoint is deliberately not advertised as a usable Cloudflare route:
+the signal router and browser still use the existing Pion SFU contract. The
+Cloudflare client is initialized but not yet invoked by room signaling.
+
 ## Proposed control flow
 
 1. Host browser creates a Cloudflare-compatible publishing offer and gathers ICE
