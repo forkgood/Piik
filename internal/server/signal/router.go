@@ -68,6 +68,7 @@ type routerHooks struct {
 	routesChanged       func(roomID string)
 	voiceAllowed        func(roomID, peerID string) bool
 	videoGeneration     func(roomID string) string
+	cloudflareSfuEnabled func() bool
 	voiceDemandChanged  func(roomID string)
 	voiceCandidateReady func(roomID, connectionID string) bool
 	voiceRouteFailed    func(roomID, peerID string)
