@@ -46,9 +46,10 @@ The repository branch now includes:
 - A server-side negotiation bridge that creates publisher sessions and local-track publications from a gathered Host offer, creates viewer sessions and remote-track subscriptions, and completes viewer SDP answers through renegotiation. The bridge remains policy-free and is not yet wired into authenticated room signaling.
 - A thread-safe ownership registry that binds Cloudflare session IDs to the exact Piik room, share generation, peer, signaling session, and role. It rejects cross-generation subscriptions and stale signaling owners, and returns immutable cleanup snapshots when a peer or share retires. It does not perform network cleanup itself; the future signaling lifecycle must execute best-effort track closure outside the authority lock.
 
-This checkpoint is deliberately not advertised as a usable Cloudflare route:
-the signal router and browser still use the existing Pion SFU contract. The
-Cloudflare client is initialized but not yet invoked by room signaling.
+The Cloudflare Connection API is now invoked by a separate authenticated
+WebSocket control path. The existing Pion SFU contract remains unchanged.
+This is still not a selectable end-user media route: the route controller,
+capability negotiation, and media presentation integration remain pending.
 
 ## Proposed control flow
 
@@ -131,3 +132,38 @@ The existing `RemoteInputChannel` now has an explicit negotiated-channel attachm
 ## Complete per-session resource ownership
 
 The Registry can now retain both media MIDs and endpoint-local negotiated DataChannel IDs in the same immutable session resource snapshot. Channel IDs are range-checked, duplicate IDs are rejected, and returned cleanup snapshots deep-copy both slices. `Bridge.CloseResources` attempts exact track and DataChannel cleanup for that snapshot and joins any errors, so failure in one cleanup does not prevent attempting the other.
+
+
+## Authenticated Cloudflare signaling checkpoint
+
+The Go and TypeScript protocols now define a separate `cloudflare-sfu`
+message family:
+- Host `publish`: full gathered SDP offer plus unique MID / stable track-name pairs.
+- Viewer `subscribe`: no publisher session ID is accepted from the browser; the server resolves the current publisher from its Registry.
+- Viewer `complete`: full gathered SDP answer. The server resolves the subscriber session by authenticated owner and browser connection fence.
+
+The signal server performs authority checks under its lock, runs Cloudflare HTTP
+operations outside that lock, and revalidates the exact signaling session and
+share generation before registering resources or returning a response. If the
+operation becomes stale or registration fails, it attempts cleanup of the
+newly allocated Cloudflare tracks. The Registry stores stable track names,
+Cloudflare MIDs, and the browser connection fence for each endpoint.
+
+The signaling lifecycle now retires exact Cloudflare resources on Host/Viewer
+disconnect, stop-sharing, room closure, viewer revocation, and server shutdown.
+Cleanup snapshots are detached from Registry locks and HTTP cleanup runs outside
+the signal server lock.
+
+## Browser Cloudflare SDP transport checkpoint
+
+`src/client/sfu/cloudflare-session.ts` now contains separate Host publisher and
+Viewer subscriber helpers. They exchange the new typed signaling messages,
+create full-gathering SDP, apply the Cloudflare answer/offer, and wait for the
+Viewer completion acknowledgement. The caller supplies the WebSocket response
+correlator and may supply an existing RTCPeerConnection.
+
+These helpers are not yet wired into `host-sfu-route` /
+`viewer-sfu-route` or the route controller. They do not yet provide selectable
+Cloudflare route negotiation, track-to-Piik presentation attachment, remote
+input DataChannel negotiation, or end-to-end media tests. P2P and Native Pion
+SFU remain the only integrated routes.
