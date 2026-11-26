@@ -11,6 +11,7 @@ on:
       - "internal/server/signal/**"
       - "src/shared/protocol.ts"
       - "src/client/sfu/cloudflare-session.ts"
+      - "src/client/sfu/cloudflare-route-adapters.ts"
       - "tests/cloudflare-session.test.ts"
       - "src/client/sfu/cloudflare-sdp.ts"
       - "tests/cloudflare-sdp.test.ts"
