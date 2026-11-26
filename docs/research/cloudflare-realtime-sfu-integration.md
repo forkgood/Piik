@@ -43,15 +43,17 @@ The repository branch now includes:
   renegotiation, and DataChannel transport/allocation/update/close operations.
 
 - A per-session operation queue with cancellation and independent-session concurrency. Its callback boundary spans each API + SDP exchange.
-- A server-side negotiation bridge that creates publisher sessions and local-track publications from a gathered Host offer, creates viewer sessions and remote-track subscriptions, and completes viewer SDP answers through renegotiation. The bridge remains policy-free and is not yet wired into authenticated room signaling.
-- A thread-safe ownership registry that binds Cloudflare session IDs to the exact Piik room, share generation, peer, signaling session, and role. It rejects cross-generation subscriptions and stale signaling owners, and returns immutable cleanup snapshots when a peer or share retires. It does not perform network cleanup itself; the future signaling lifecycle must execute best-effort track closure outside the authority lock.
+- A server-side negotiation bridge that creates publisher sessions and local-track publications from a gathered Host offer, creates viewer sessions and remote-track subscriptions, and completes viewer SDP answers through renegotiation. The bridge remains policy-free; authenticated room signaling now owns its invocation and resource registration.
+- A thread-safe ownership registry that binds Cloudflare session IDs to the exact Piik room, share generation, peer, signaling session, and role. It rejects cross-generation subscriptions and stale signaling owners, and returns immutable cleanup snapshots when a peer or share retires. It does not perform network cleanup itself; the signal lifecycle snapshots ownership and performs best-effort track closure outside the authority lock.
 
-The Cloudflare Connection API is now invoked by a separate authenticated
-WebSocket control path. The existing Pion SFU contract remains unchanged.
-This is still not a selectable end-user media route: the route controller,
-capability negotiation, and media presentation integration remain pending.
+The Cloudflare Connection API is invoked by an authenticated WebSocket control
+path. The server advertises Cloudflare availability in runtime capabilities and
+marks each SFU route config with the provider choice. Host and Viewer route
+factories select Cloudflare transport adapters for marked configurations; the
+Pion publisher/subscriber remains the fallback when Cloudflare is not configured.
+The provider-specific path has not yet been verified in a live end-to-end session.
 
-## Proposed control flow
+## Implemented control flow (not yet live-E2E verified)
 
 1. Host browser creates a Cloudflare-compatible publishing offer and gathers ICE
    candidates before submitting the completed SDP to Piik Server.
@@ -110,7 +112,7 @@ The negotiation bridge now validates returned track identities (stable track nam
 
 ## Browser SDP helper
 
-The browser package now contains provider-specific helpers to create a publisher offer or answer a subscriber offer only after ICE gathering reaches `complete`. Both operations are abortable, bounded by a 15-second ICE gathering timeout, and reject empty SDP or SDP without gathered candidate/end-of-candidates evidence. This helper is not yet connected to the room WebSocket protocol or the existing Publisher/Subscriber route factories.
+The browser package now contains provider-specific helpers to create a publisher offer or answer a subscriber offer only after ICE gathering reaches `complete`. Both operations are abortable, bounded by a 15-second ICE gathering timeout, and reject empty SDP or SDP without gathered candidate/end-of-candidates evidence. The helper is now called by the Cloudflare Publisher / Subscriber route adapters through the room WebSocket protocol.
 
 
 ## Negotiated DataChannel bridge
@@ -126,7 +128,7 @@ The bridge returns IDs and any SDP description to the signaling owner. It does n
 
 ## Browser negotiated remote-input channel
 
-The existing `RemoteInputChannel` now has an explicit negotiated-channel attachment path. It creates Piik's canonical input channel label with `negotiated: true` and the exact endpoint-local ID returned by Cloudflare, and retains the existing open/close/current semantics. Invalid SCTP stream IDs are rejected. This is only the browser-side primitive: Piik has not yet connected the returned Cloudflare channel allocation to the room authorization and route activation flow.
+The existing `RemoteInputChannel` now has an explicit negotiated-channel attachment path. It creates Piik's canonical input channel label with `negotiated: true` and the exact endpoint-local ID returned by Cloudflare, and retains the existing open/close/current semantics. Invalid SCTP stream IDs are rejected. This remains a browser-side primitive: Piik has not yet connected Cloudflare channel allocation to room authorization and route activation.
 
 
 ## Complete per-session resource ownership
@@ -164,8 +166,10 @@ correlator and may supply an existing RTCPeerConnection. A reply broker buffers
 responses that arrive before the awaiting code registers its waiter and fences
 replies by both operation kind and connection ID.
 
-These helpers are not yet wired into `host-sfu-route` /
-`viewer-sfu-route` or the route controller. They do not yet provide selectable
-Cloudflare route negotiation, track-to-Piik presentation attachment, remote
-input DataChannel negotiation, or end-to-end media tests. P2P and Native Pion
-SFU remain the only integrated routes.
+The helpers are now wired into `host-sfu-route` / `viewer-sfu-route` through
+provider-specific transport adapters. The server marks Cloudflare routes when
+credentials are configured; clients select the adapter for those route configs.
+The Viewer adapter attaches received audio/video tracks to Piik presentation
+streams and reports decoded-frame progress. Remote-input DataChannel negotiation
+and live Cloudflare end-to-end tests remain pending. P2P is unchanged, and the
+Native Pion route remains the fallback for deployments without Cloudflare config.
