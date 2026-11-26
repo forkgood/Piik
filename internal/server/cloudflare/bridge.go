@@ -75,7 +75,7 @@ func (b *Bridge) Publish(ctx context.Context, offer SessionDescription, tracks [
 		return nil
 	})
 	if err != nil {
-		return Publication{SessionID: session.SessionID}, fmt.Errorf("publish Cloudflare tracks: %w", err)
+		return Publication{SessionID: session.SessionID, Tracks: response.Tracks}, fmt.Errorf("publish Cloudflare tracks: %w", err)
 	}
 	return Publication{SessionID: session.SessionID, Tracks: response.Tracks, Answer: *response.SessionDescription}, nil
 }
@@ -120,7 +120,7 @@ func (b *Bridge) Subscribe(ctx context.Context, publisherSessionID string, track
 		return nil
 	})
 	if err != nil {
-		return Subscription{SessionID: session.SessionID}, fmt.Errorf("subscribe Cloudflare tracks: %w", err)
+		return Subscription{SessionID: session.SessionID, Tracks: response.Tracks}, fmt.Errorf("subscribe Cloudflare tracks: %w", err)
 	}
 	return Subscription{SessionID: session.SessionID, Tracks: response.Tracks, Offer: *response.SessionDescription}, nil
 }
