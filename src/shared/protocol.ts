@@ -463,7 +463,7 @@ const cloudflareSfuServerMessageSchema = z.object({
   description: sessionDescriptionSchema.optional(),
   tracks: z.array(cloudflareSfuTrackSchema).optional(),
 }).strict().refine((message) => {
-  if (message.kind === "completed") return !message.sessionId && !message.description && !message.tracks;
+  if (message.kind === "completed") return !message.description && !message.tracks;
   return !!message.description && !!message.tracks?.length;
 });
 export type CloudflareSfuServerMessage = z.infer<typeof cloudflareSfuServerMessageSchema>;
