@@ -1,4 +1,4 @@
-import type { CloudflareSfuServerMessage, ClientMessage, ServerMessage } from "../../shared/protocol";
+import type { CloudflareSfuServerMessage, ClientMessage } from "../../shared/protocol";
 import type { QualityProfile } from "../media/quality";
 import type { BrowserVideoCodec } from "../webrtc/video-codec";
 import type { SfuConnectionConfig } from "./peer";
@@ -16,7 +16,6 @@ function signaling(
   shareGeneration: ShareGeneration,
   send: Send,
   broker: CloudflareSfuReplyBroker,
-  lifetime: AbortSignal,
 ) {
   const generation = shareGeneration();
   if (!generation) throw new Error("Cloudflare share generation is unavailable");
@@ -39,7 +38,6 @@ export class CloudflareSfuPublisherTransport {
   private pc: RTCPeerConnection | null = null;
   private video: MediaStreamTrack | null = null;
   private audio: MediaStreamTrack | null = null;
-  private source: MediaStream | null = null;
   private lifetime = new AbortController();
   private paused = false;
   private closed = false;
@@ -68,7 +66,6 @@ export class CloudflareSfuPublisherTransport {
     this.video = cloneLive(sourceVideo);
     this.audio = cloneLive(stream.getAudioTracks()[0]);
     if (!this.video) return false;
-    this.source = stream;
     try {
       await this.video.applyConstraints({
         width: { ideal: profile.resolution.width },
@@ -84,7 +81,7 @@ export class CloudflareSfuPublisherTransport {
       });
       const transport = await createCloudflarePublisher(
         tracks,
-        signaling(this.config, this.shareGeneration, this.send, this.broker, this.lifetime.signal),
+        signaling(this.config, this.shareGeneration, this.send, this.broker),
         this.lifetime.signal,
         pc,
       );
@@ -117,12 +114,12 @@ export class CloudflareSfuPublisherTransport {
     try {
       if (!videoSender) throw new Error("Cloudflare video sender is missing");
       await videoSender.replaceTrack(nextVideo);
+      if (Boolean(audioSender) !== Boolean(nextAudio)) throw new Error("Cloudflare audio track topology changed");
       if (audioSender) await audioSender.replaceTrack(nextAudio);
       this.video?.stop();
       this.audio?.stop();
       this.video = nextVideo;
       this.audio = nextAudio;
-      this.source = stream;
       this.applyPaused();
       return true;
     } catch {
@@ -181,7 +178,6 @@ export class CloudflareSfuPublisherTransport {
     this.audio?.stop();
     this.video = null;
     this.audio = null;
-    this.source = null;
   }
 }
 
@@ -204,7 +200,6 @@ export class CloudflareSfuSubscriberTransport {
   private closed = false;
   private lifetime = new AbortController();
   private proofTimer: ReturnType<typeof setInterval> | null = null;
-  private playbackBufferTarget: number | null = null;
   private playbackBufferStatus: import("../webrtc/receiver-buffer-target").PlaybackBufferStatus = null;
 
   constructor(
@@ -215,7 +210,6 @@ export class CloudflareSfuSubscriberTransport {
   ) {}
 
   setPlaybackBufferTarget(target: number | null): import("../webrtc/receiver-buffer-target").PlaybackBufferStatus {
-    this.playbackBufferTarget = target;
     // Cloudflare endpoint currently has no Piik receiver-buffer controller.
     this.playbackBufferStatus = null;
     this.events.onPlaybackBufferStatus?.(null);
