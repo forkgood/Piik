@@ -231,6 +231,7 @@ export const DEFAULT_ROUTE_POLICY = {
 
 export const runtimeCapabilitiesSchema = z.object({
   sfu: z.boolean().default(false),
+  cloudflareSfu: z.boolean().default(false),
   sfuOnly: z.boolean().optional(),
   natPrediction: z.boolean().default(false),
   roomInteractions: z.boolean().default(false),
