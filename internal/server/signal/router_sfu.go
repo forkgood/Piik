@@ -213,7 +213,8 @@ func (r *router) prepareSfuVideoAttachment(roomID string, operation *route.Opera
 	}
 	config := protocol.SfuConfigMessage{Type: "sfu-config", Revision: protocol.Int(operation.Current.Revision),
 		PublicationGeneration: publication.Generation,
-		CloudflareSfu: r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled()}
+		CloudflareSfu: r.hooks.cloudflareSfuEnabled != nil && r.hooks.cloudflareSfuEnabled(),
+		IceServers: r.configuredIceServers()}
 	config.ConnectionID = publication.ConnectionID
 	r.hooks.sendToSession(host.SessionID, config)
 	config.ConnectionID = operation.Current.ConnectionID
