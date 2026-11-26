@@ -209,7 +209,7 @@ export class CloudflareSfuSubscriberTransport {
     private readonly shareGeneration: ShareGeneration,
   ) {}
 
-  setPlaybackBufferTarget(target: number | null): import("../webrtc/receiver-buffer-target").PlaybackBufferStatus {
+  setPlaybackBufferTarget(_target: number | null): import("../webrtc/receiver-buffer-target").PlaybackBufferStatus {
     // Cloudflare endpoint currently has no Piik receiver-buffer controller.
     this.playbackBufferStatus = null;
     this.events.onPlaybackBufferStatus?.(null);
@@ -231,7 +231,7 @@ export class CloudflareSfuSubscriberTransport {
     });
     try {
       await createCloudflareSubscriber(
-        signaling(config, this.shareGeneration, this.send, this.broker, this.lifetime.signal),
+        signaling(config, this.shareGeneration, this.send, this.broker),
         this.lifetime.signal,
         ({ track }) => {
           if (this.closed || this.stream.getTracks().some(item => item.id === track.id)) return;
