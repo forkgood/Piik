@@ -164,6 +164,27 @@ func (c *Client) NewTracks(ctx context.Context, sessionID string, description *S
 	return out, err
 }
 
+// UpdateTracks changes existing local publications or remote subscriptions.
+// Keep the batch on one session and inspect every result before updating room state.
+func (c *Client) UpdateTracks(ctx context.Context, sessionID string, description *SessionDescription, tracks []Track) (TracksResponse, error) {
+	if sessionID == "" || len(tracks) == 0 { return TracksResponse{}, errors.New("sessionId and at least one track are required") }
+	location := tracks[0].Location
+	if location != "local" && location != "remote" { return TracksResponse{}, errors.New("track location must be local or remote") }
+	for _, track := range tracks {
+		if track.Location != location { return TracksResponse{}, errors.New("a tracks update cannot mix local and remote tracks") }
+		if track.Location == "local" && track.MID == "" { return TracksResponse{}, errors.New("local track updates require mid") }
+		if track.Location == "remote" && (track.SessionID == "" || track.TrackName == "") { return TracksResponse{}, errors.New("remote track updates require publisher sessionId and trackName") }
+	}
+	input := struct {
+		SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`
+		Tracks []Track `json:"tracks"`
+	}{description, tracks}
+	var out TracksResponse
+	err := c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/tracks/update", input, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
+	return out, err
+}
+
 func (c *Client) Renegotiate(ctx context.Context, sessionID string, answer SessionDescription) (RenegotiateResponse, error) {
 	if sessionID == "" || answer.Type != "answer" || answer.SDP == "" { return RenegotiateResponse{}, errors.New("sessionId and a non-empty SDP answer are required") }
 	var out RenegotiateResponse
