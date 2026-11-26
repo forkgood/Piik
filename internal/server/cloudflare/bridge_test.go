@@ -99,3 +99,47 @@ func TestBridgeSubscribeAndCompleteAnswer(t *testing.T) {
 	}
 	if !renegotiated { t.Fatal("expected subscription answer to be renegotiated") }
 }
+
+
+func TestBridgeCloseTracksUsesForceAndExactMIDs(t *testing.T) {
+	var closed []TrackReference
+	var force bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/apps/test/sessions/session-1/tracks/close" || r.Method != http.MethodPut {
+			http.NotFound(w, r)
+			return
+		}
+		var body struct {
+			Tracks []TrackReference `json:"tracks"`
+			Force bool `json:"force"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil { t.Fatal(err) }
+		closed, force = body.Tracks, body.Force
+		_ = json.NewEncoder(w).Encode(TracksResponse{})
+	}))
+	defer server.Close()
+	client, err := New("test", "secret", WithBaseURL(server.URL+"/v1"), WithHTTPClient(server.Client()))
+	if err != nil { t.Fatal(err) }
+	bridge, err := NewBridge(client)
+	if err != nil { t.Fatal(err) }
+	if err := bridge.CloseTracks(context.Background(), "session-1", []string{"0","2"}); err != nil { t.Fatal(err) }
+	if !force || len(closed) != 2 || closed[0].MID != "0" || closed[1].MID != "2" {
+		t.Fatalf("unexpected close request: force=%v tracks=%#v", force, closed)
+	}
+}
+
+func TestValidateTrackResultsRejectsUnexpectedOrDuplicateMID(t *testing.T) {
+	requested := []Track{{Location:"local", MID:"0", TrackName:"screen-video"}}
+	if err := validateTrackResults(requested, []TrackResult{{Track:Track{Location:"local", MID:"0", TrackName:"screen-audio"}}}); err == nil {
+		t.Fatal("unexpected track name was accepted")
+	}
+	if err := validateTrackResults([]Track{
+		{Location:"local", MID:"0", TrackName:"screen-video"},
+		{Location:"local", MID:"1", TrackName:"screen-audio"},
+	}, []TrackResult{
+		{Track:Track{Location:"local", MID:"0", TrackName:"screen-video"}},
+		{Track:Track{Location:"local", MID:"0", TrackName:"screen-audio"}},
+	}); err == nil {
+		t.Fatal("duplicate MID was accepted")
+	}
+}
