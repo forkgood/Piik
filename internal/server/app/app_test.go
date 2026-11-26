@@ -83,6 +83,25 @@ func newServer(t *testing.T, options Options) *Server {
 	return server
 }
 
+func TestNewInitializesCloudflareRealtimeClientWithoutNetworkAccess(t *testing.T) {
+	configuration := testConfig(t)
+	configuration.CloudflareSFU = &config.CloudflareSFUConfig{
+		AppID: "test-app",
+		AppSecret: "test-secret",
+		APIBaseURL: "https://rtc.live.cloudflare.com/v1",
+	}
+	server, err := New(Options{Config: configuration, HeartbeatIntervalMs: 60_000})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if server.cloudflareSFU == nil {
+		t.Fatal("Cloudflare Realtime client was not initialized")
+	}
+	if err := server.Close(context.Background()); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
 func TestApplicationPagesCannotBeEmbeddedWithoutAProxy(t *testing.T) {
 	server := newServer(t, Options{})
 	for _, accepting := range []bool{false, true} {
