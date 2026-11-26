@@ -108,6 +108,7 @@ import { nextViewerMediaBinding, playbackFailure, prepareViewerPlayback, type Re
 import { observeCompositedVideoFrame } from "../media/video-frame-proof";
 import { exactPeerSignalOwner } from "../media/route-transition";
 import { ViewerSfuRoute } from "../media/viewer-sfu-route";
+import { CloudflareSfuReplyBroker } from "../sfu/cloudflare-session";
 import type { PlaybackBufferStatus } from "../webrtc/receiver-buffer-target";
 import type {
   ConnectionMetrics,
@@ -264,6 +265,7 @@ export function ViewerPage({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const peerRef = useRef<ViewerMediaPeer | null>(null);
   const viewerSfuRouteRef = useRef<ViewerSfuRoute | null>(null);
+  const cloudflareSfuBrokerRef = useRef(new CloudflareSfuReplyBroker());
   const [screenBufferTargetMs, setScreenBufferTargetMs] = useState(() => readRoomPreferences().screenBufferTargetMs);
   const screenBufferTargetRef = useRef(screenBufferTargetMs);
   const [screenBufferStatus, setScreenBufferStatus] = useState<PlaybackBufferStatus>(null);
@@ -1758,6 +1760,10 @@ export function ViewerPage({
       }
       if (message.type === "viewer-quality-evidence") {
         acceptRelayChildEvidence(message);
+        return;
+      }
+      if (message.type === "cloudflare-sfu") {
+        cloudflareSfuBrokerRef.current.accept(message);
         return;
       }
       if (message.type === "sfu-config") {
