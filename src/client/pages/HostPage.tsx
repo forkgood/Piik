@@ -2710,6 +2710,7 @@ export function HostPage({
       return;
     }
     if (message.type === "sfu-config") {
+      cloudflareSfuEnabledRef.current = message.cloudflareSfu === true;
       const route = ensureHostSfuRoute(generation);
       void route
         .acceptConfig(message)
