@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/TNTcraftHIM/Piik/internal/diagnostics"
+	cloudflarerealtime "github.com/TNTcraftHIM/Piik/internal/server/cloudflare"
 	"github.com/TNTcraftHIM/Piik/internal/media/forwarding"
 	"github.com/TNTcraftHIM/Piik/internal/server/config"
 	"github.com/TNTcraftHIM/Piik/internal/server/room"
@@ -83,6 +84,7 @@ type Server struct {
 	frontend      http.Handler
 	logger        *slog.Logger
 	media         *sfu.Media
+	cloudflareSFU *cloudflarerealtime.Client
 	mediaMux      ice.UDPMux
 	sfuPublicIP   atomic.Pointer[string]
 	stopSFUDNS    func()
@@ -149,6 +151,17 @@ func New(options Options) (*Server, error) {
 		done:        make(chan error, 1),
 	}
 	server.listeners = append([]net.Listener(nil), options.Listeners...)
+	if configuration.CloudflareSFU != nil {
+		client, clientErr := cloudflarerealtime.New(
+			configuration.CloudflareSFU.AppID,
+			configuration.CloudflareSFU.AppSecret,
+			cloudflarerealtime.WithBaseURL(configuration.CloudflareSFU.APIBaseURL),
+		)
+		if clientErr != nil {
+			return nil, fmt.Errorf("Cloudflare Realtime client configuration: %w", clientErr)
+		}
+		server.cloudflareSFU = client
+	}
 	if options.Assets != nil {
 		server.frontend = staticHandler(options.Assets, http.HandlerFunc(notFoundJSON))
 	}
