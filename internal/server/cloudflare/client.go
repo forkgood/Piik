@@ -81,8 +81,10 @@ type RenegotiateResponse struct { ErrorCode string `json:"errorCode,omitempty"`;
 type SessionInfo struct {
 	SessionID string `json:"sessionId,omitempty"`
 	Tracks []struct { Location string `json:"location"`; MID string `json:"mid"`; TrackName string `json:"trackName"`; Status string `json:"status"` } `json:"tracks"`
+	DataChannels []struct { Location string `json:"location"`; SessionID string `json:"sessionId,omitempty"`; DataChannelName string `json:"dataChannelName"`; ID int `json:"id"`; Status string `json:"status"` } `json:"dataChannels"`
 }
 type TrackReference struct { MID string `json:"mid"` }
+type DataChannelReference struct { ID int `json:"id"` }
 type DataChannel struct {
 	Location string `json:"location"`
 	DataChannelName string `json:"dataChannelName"`
@@ -218,6 +220,39 @@ func (c *Client) NewDataChannels(ctx context.Context, sessionID string, channels
 	}
 	var out DataChannelsResponse
 	err := c.do(ctx, http.MethodPost, "/sessions/"+url.PathEscape(sessionID)+"/datachannels/new", struct { DataChannels []DataChannel `json:"dataChannels"` }{channels}, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
+	return out, err
+}
+
+// UpdateDataChannels changes flags on existing remote subscriptions, such as
+// granting or revoking the remote-input reply path.
+func (c *Client) UpdateDataChannels(ctx context.Context, sessionID string, channels []DataChannel) (DataChannelsResponse, error) {
+	if sessionID == "" || len(channels) == 0 { return DataChannelsResponse{}, errors.New("sessionId and at least one data channel are required") }
+	for _, channel := range channels {
+		if channel.Location != "remote" || channel.SessionID == "" || channel.DataChannelName == "" || channel.CanReply == nil {
+			return DataChannelsResponse{}, errors.New("data channel updates require remote location, publisher sessionId, name, and explicit canReply")
+		}
+	}
+	var out DataChannelsResponse
+	err := c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/datachannels/update", struct {
+		DataChannels []DataChannel `json:"dataChannels"`
+	}{channels}, &out)
+	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
+	return out, err
+}
+
+// CloseDataChannels closes allocations by the ID returned for this endpoint.
+func (c *Client) CloseDataChannels(ctx context.Context, sessionID string, ids []int) (DataChannelsResponse, error) {
+	if sessionID == "" || len(ids) == 0 { return DataChannelsResponse{}, errors.New("sessionId and at least one channel ID are required") }
+	refs := make([]DataChannelReference, 0, len(ids))
+	for _, id := range ids {
+		if id < 0 { return DataChannelsResponse{}, errors.New("data channel ID must not be negative") }
+		refs = append(refs, DataChannelReference{ID:id})
+	}
+	var out DataChannelsResponse
+	err := c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/datachannels/close", struct {
+		DataChannels []DataChannelReference `json:"dataChannels"`
+	}{refs}, &out)
 	if err == nil && out.ErrorCode != "" { err = &APIError{StatusCode:http.StatusOK, Code:out.ErrorCode, Description:out.ErrorDescription} }
 	return out, err
 }
