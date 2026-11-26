@@ -56,7 +56,6 @@ type CloudflareSFUServerMessage struct {
 	Kind string `json:"kind"`
 	ShareGeneration string `json:"shareGeneration"`
 	ConnectionID string `json:"connectionId"`
-	SessionID string `json:"sessionId,omitempty"`
 	Description *SessionDescription `json:"description,omitempty"`
 	Tracks []CloudflareSFUTrack `json:"tracks,omitempty"`
 }
@@ -68,17 +67,17 @@ func decodeCloudflareSFUServer(data []byte) (ServerMessage, error) {
 	present, err := decodeObject(data, &message)
 	if err != nil { return nil, err }
 	if err := present.require("type", "kind", "shareGeneration", "connectionId"); err != nil { return nil, err }
-	if err := present.optional("sessionId", "description", "tracks"); err != nil { return nil, err }
+	if err := present.optional("description", "tracks"); err != nil { return nil, err }
 	if message.Type != "cloudflare-sfu" || !ValidOpaqueID(message.ShareGeneration) || !ValidOpaqueID(message.ConnectionID) {
 		return nil, errors.New("invalid Cloudflare SFU response fence")
 	}
 	switch message.Kind {
 	case "published", "subscribed":
-		if !ValidOpaqueID(message.SessionID) || message.Description == nil || len(message.Tracks) == 0 {
+		if message.Description == nil || len(message.Tracks) == 0 {
 			return nil, errors.New("incomplete Cloudflare SFU SDP response")
 		}
 	case "completed":
-		if message.SessionID != "" || message.Description != nil || len(message.Tracks) != 0 {
+		if message.Description != nil || len(message.Tracks) != 0 {
 			return nil, errors.New("invalid Cloudflare SFU completion response")
 		}
 	default:
