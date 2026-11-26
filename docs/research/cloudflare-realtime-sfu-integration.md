@@ -110,3 +110,14 @@ The negotiation bridge now validates returned track identities (stable track nam
 ## Browser SDP helper
 
 The browser package now contains provider-specific helpers to create a publisher offer or answer a subscriber offer only after ICE gathering reaches `complete`. Both operations are abortable, bounded by a 15-second ICE gathering timeout, and reject empty SDP or SDP without gathered candidate/end-of-candidates evidence. This helper is not yet connected to the room WebSocket protocol or the existing Publisher/Subscriber route factories.
+
+
+## Negotiated DataChannel bridge
+
+The Cloudflare bridge now exposes serialized operations for:
+- establishing a reserved remote channel such as `server-events`;
+- allocating local or remote negotiated DataChannels and validating the returned endpoint-local IDs;
+- explicitly granting or revoking a remote subscriber's `canReply` permission for a named channel;
+- closing exact channel IDs allocated on a specific endpoint Session.
+
+The bridge returns IDs and any SDP description to the signaling owner. It does not itself create browser DataChannels, grant room permissions, or bind channel IDs to Registry ownership. Those steps must be completed by the Piik signaling and browser transport integration before remote input is usable.
