@@ -4,6 +4,7 @@ package signal
 // with Server.mu held, so each effect observes the current room membership.
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
