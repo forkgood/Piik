@@ -41,3 +41,31 @@ func TestRegistryRetirePeerRequiresExactSignalingSession(t *testing.T) {
 	if retired := registry.RetirePeer("room-a","share-1","host","old-session"); len(retired) != 0 { t.Fatal("stale disconnect retired current owner") }
 	if retired := registry.RetirePeer("room-a","share-1","host","host-session"); len(retired) != 1 { t.Fatal("exact owner did not retire") }
 }
+
+
+func TestRegistryTracksChannelIDsAsImmutableOwnedResources(t *testing.T) {
+	registry := NewRegistry()
+	host := Owner{RoomID:"room-a", ShareGeneration:"share-1", PeerID:"host", SignalingID:"host-session", Role:"host"}
+	if err := registry.RegisterPublisherResources(host, "cf-host", []string{"0"}, []int{3, 5}); err != nil {
+		t.Fatal(err)
+	}
+	resource, ok := registry.Publisher("room-a", "share-1")
+	if !ok || len(resource.ChannelIDs) != 2 || resource.ChannelIDs[0] != 3 {
+		t.Fatalf("unexpected registered channel resources: %#v", resource)
+	}
+	resource.ChannelIDs[0] = 99
+	retired := registry.RetireShare("room-a", "share-1")
+	if len(retired) != 1 || retired[0].ChannelIDs[0] != 3 {
+		t.Fatalf("registry did not preserve immutable channel ID snapshot: %#v", retired)
+	}
+}
+
+func TestRegistryRejectsInvalidChannelResourceIDs(t *testing.T) {
+	registry := NewRegistry()
+	host := Owner{RoomID:"room-a", ShareGeneration:"share-1", PeerID:"host", SignalingID:"host-session", Role:"host"}
+	for _, ids := range [][]int{{-1}, {65_535}, {2, 2}} {
+		if err := registry.RegisterPublisherResources(host, "cf-host", []string{"0"}, ids); err == nil {
+			t.Fatalf("invalid channel IDs accepted: %#v", ids)
+		}
+	}
+}
