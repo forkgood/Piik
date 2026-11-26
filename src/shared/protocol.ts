@@ -1278,6 +1278,7 @@ export const serverMessageSchema = z.union([
       publicationGeneration: opaqueIdSchema,
       connectionId: opaqueIdSchema,
       cloudflareSfu: z.boolean().optional(),
+      iceServers: z.array(iceServerSchema).max(8).optional(),
     })
     .strict(),
   sfuSignalMessageSchema,
