@@ -27,7 +27,7 @@ export async function createCloudflarePublisher(
   tracks: CloudflareSfuTrackInput[],
   signaling: CloudflareSfuSignaling,
   signal: AbortSignal,
-  pc = new RTCPeerConnection({ iceServers: [] }),
+  pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] }),
 ): Promise<{ pc: RTCPeerConnection; tracks: CloudflareSfuTrack[] }> {
   if (tracks.length < 1 || tracks.length > 4) { pc.close(); throw new Error("Cloudflare publisher requires one to four tracks"); }
   const names = new Set<string>();
