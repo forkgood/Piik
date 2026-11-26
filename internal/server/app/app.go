@@ -85,6 +85,8 @@ type Server struct {
 	logger        *slog.Logger
 	media         *sfu.Media
 	cloudflareSFU *cloudflarerealtime.Client
+	cloudflareBridge *cloudflarerealtime.Bridge
+	cloudflareRegistry *cloudflarerealtime.Registry
 	mediaMux      ice.UDPMux
 	sfuPublicIP   atomic.Pointer[string]
 	stopSFUDNS    func()
@@ -161,6 +163,12 @@ func New(options Options) (*Server, error) {
 			return nil, fmt.Errorf("Cloudflare Realtime client configuration: %w", clientErr)
 		}
 		server.cloudflareSFU = client
+		bridge, bridgeErr := cloudflarerealtime.NewBridge(client)
+		if bridgeErr != nil {
+			return nil, fmt.Errorf("Cloudflare Realtime bridge: %w", bridgeErr)
+		}
+		server.cloudflareBridge = bridge
+		server.cloudflareRegistry = cloudflarerealtime.NewRegistry()
 	}
 	if options.Assets != nil {
 		server.frontend = staticHandler(options.Assets, http.HandlerFunc(notFoundJSON))
@@ -169,6 +177,8 @@ func New(options Options) (*Server, error) {
 		Store:                     store,
 		EndpointMediaCopyCapacity: configuration.EndpointMediaCopyCapacity,
 		SfuOnly:                   configuration.SFU != nil && configuration.SFU.Only,
+		CloudflareBridge:          server.cloudflareBridge,
+		CloudflareRegistry:        server.cloudflareRegistry,
 		Ice:                       config.IceConfig(configuration),
 		// The prediction capability is separate from the wire-shaped ICE settings.
 		NATPredictionEnabled: configuration.NATPredictionEnabled,
