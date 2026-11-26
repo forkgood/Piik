@@ -186,6 +186,7 @@ func (v *RoutePolicy) UnmarshalJSON(data []byte) error {
 // RuntimeCapabilities mirrors runtimeCapabilitiesSchema.
 type RuntimeCapabilities struct {
 	Sfu                        bool     `json:"sfu"`
+	CloudflareSfu              bool     `json:"cloudflareSfu,omitempty"`
 	SfuOnly                    bool     `json:"sfuOnly,omitempty"`
 	NatPrediction              bool     `json:"natPrediction"`
 	RoomInteractions           bool     `json:"roomInteractions,omitempty"`
