@@ -76,7 +76,7 @@ export class CloudflareSfuPublisherTransport {
       }).catch(() => undefined);
       const tracks = [{ track: this.video, trackName: "screen-video", stream: new MediaStream([this.video]) }];
       if (this.audio) tracks.push({ track: this.audio, trackName: "screen-audio", stream: new MediaStream([this.audio]) });
-      const pc = new RTCPeerConnection({ iceServers: [] });
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] });
       pc.addEventListener("connectionstatechange", () => {
         if (this.closed) return;
         if (pc.connectionState === "failed") this.onDisconnected();
