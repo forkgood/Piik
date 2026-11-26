@@ -1282,7 +1282,10 @@ export function ViewerPage({
               cloudflareSfuBrokerRef.current,
               () => currentShareGeneration,
             )
-          : new SfuSubscriber(subscriberEvents),
+          : new SfuSubscriber({
+              ...subscriberEvents,
+              send: (message) => active && viewerSfuRoute === route ? signal.send(message) : false,
+            }),
         send: (message) =>
           active && viewerSfuRoute === route ? signal.send(message) : false,
       });
