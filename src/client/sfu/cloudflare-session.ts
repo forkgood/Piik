@@ -37,7 +37,8 @@ export async function createCloudflarePublisher(
     return { trackName, sender: pc.addTrack(track, stream ?? new MediaStream([track])) };
   });
   return closeOnFailure(pc, (async () => {
-    const offer = await createCloudflareOffer(pc, signal);
+    const gatheredOffer = await createCloudflareOffer(pc, signal);
+    const offer = { type: "offer" as const, sdp: gatheredOffer.sdp ?? "" };
     const localTracks = senders.map(({ trackName, sender }) => {
       const transceiver = pc.getTransceivers().find((item) => item.sender === sender);
       if (!transceiver?.mid) throw new Error("Cloudflare publisher transceiver has no MID");
@@ -66,7 +67,8 @@ export async function createCloudflareSubscriber(
     const reply = await signaling.waitForReply("subscribed", signaling.connectionId, signal);
     assertFence(reply, signaling);
     if (reply.kind !== "subscribed" || !reply.description || !reply.sessionId || !reply.tracks) throw new Error("Cloudflare subscriber response is incomplete");
-    const answer = await createCloudflareAnswer(pc, description(reply.description), signal);
+    const gatheredAnswer = await createCloudflareAnswer(pc, description(reply.description), signal);
+    const answer = { type: "answer" as const, sdp: gatheredAnswer.sdp ?? "" };
     signaling.send({ type: "cloudflare-sfu", kind: "complete", publicationGeneration: signaling.publicationGeneration, connectionId: signaling.connectionId, description: answer });
     const completed = await signaling.waitForReply("completed", signaling.connectionId, signal);
     assertFence(completed, signaling);
