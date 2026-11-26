@@ -105,3 +105,8 @@ P2P-first or Pion-SFU behavior for deployments without Cloudflare configuration.
 ## Track lifecycle hardening
 
 The negotiation bridge now validates returned track identities (stable track name, location, MID uniqueness, and publisher session for remote subscriptions) before callers may register them. It also exposes force-close cleanup for the exact recorded MIDs, serialized with other mutations on that Cloudflare session. This is a cleanup primitive, not yet wired to Piik disconnect/share/room lifecycle hooks.
+
+
+## Browser SDP helper
+
+The browser package now contains provider-specific helpers to create a publisher offer or answer a subscriber offer only after ICE gathering reaches `complete`. Both operations are abortable, bounded by a 15-second ICE gathering timeout, and reject empty SDP or SDP without gathered candidate/end-of-candidates evidence. This helper is not yet connected to the room WebSocket protocol or the existing Publisher/Subscriber route factories.
