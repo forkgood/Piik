@@ -66,16 +66,18 @@ type Track struct {
 	SessionID string `json:"sessionId,omitempty"`
 }
 type TrackResult struct {
-	Track Track `json:"track"`
+	Track
 	ErrorCode string `json:"errorCode,omitempty"`
 	ErrorDescription string `json:"errorDescription,omitempty"`
 }
 type TracksResponse struct {
+	ErrorCode string `json:"errorCode,omitempty"`
+	ErrorDescription string `json:"errorDescription,omitempty"`
 	SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`
 	RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"`
 	Tracks []TrackResult `json:"tracks,omitempty"`
 }
-type RenegotiateResponse struct { SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"` }
+type RenegotiateResponse struct { ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"`; SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"` }
 type SessionInfo struct {
 	SessionID string `json:"sessionId,omitempty"`
 	Tracks []struct { Location string `json:"location"`; MID string `json:"mid"`; TrackName string `json:"trackName"`; Status string `json:"status"` } `json:"tracks"`
@@ -87,8 +89,8 @@ type DataChannel struct {
 	SessionID string `json:"sessionId,omitempty"`
 	CanReply bool `json:"canReply,omitempty"`
 }
-type DataChannelResult struct { DataChannel DataChannel `json:"dataChannel"`; ID int `json:"id,omitempty"`; ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"` }
-type DataChannelsResponse struct { SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"`; DataChannels []DataChannelResult `json:"dataChannels,omitempty"` }
+type DataChannelResult struct { DataChannel; ID int `json:"id,omitempty"`; ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"` }
+type DataChannelsResponse struct { ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"`; SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"`; DataChannels []DataChannelResult `json:"dataChannels,omitempty"` }
 
 func isLoopbackHost(host string) bool {
 	if strings.EqualFold(host, "localhost") { return true }
@@ -162,16 +164,24 @@ func (c *Client) GetSession(ctx context.Context, sessionID string) (SessionInfo,
 	return out, err
 }
 
-func (c *Client) CloseTracks(ctx context.Context, sessionID string, mids []string) error {
-	if sessionID == "" || len(mids) == 0 { return errors.New("sessionId and at least one mid are required") }
+func (c *Client) CloseTracks(ctx context.Context, sessionID string, mids []string, force bool, offer *SessionDescription) (TracksResponse, error) {
+	if sessionID == "" || len(mids) == 0 { return TracksResponse{}, errors.New("sessionId and at least one mid are required") }
+	if !force && (offer == nil || offer.Type != "offer" || offer.SDP == "") {
+		return TracksResponse{}, errors.New("negotiated track closure requires a non-empty SDP offer")
+	}
 	tracks := make([]TrackReference, 0, len(mids))
 	for _, mid := range mids {
-		if mid == "" { return errors.New("track mid must not be empty") }
+		if mid == "" { return TracksResponse{}, errors.New("track mid must not be empty") }
 		tracks = append(tracks, TrackReference{MID: mid})
 	}
-	return c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/tracks/close", struct {
+	input := struct {
 		Tracks []TrackReference `json:"tracks"`
-	}{tracks}, nil)
+		SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`
+		Force bool `json:"force"`
+	}{tracks, offer, force}
+	var out TracksResponse
+	err := c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/tracks/close", input, &out)
+	return out, err
 }
 
 func (c *Client) EstablishDataChannel(ctx context.Context, sessionID, name string) (DataChannelsResponse, error) {
@@ -199,11 +209,13 @@ func (c *Client) NewDataChannels(ctx context.Context, sessionID string, channels
 // evidence that a batch operation succeeded.
 func (r TracksResponse) ResourceErrors() []string {
 	var out []string
+	if r.ErrorCode != "" { out = append(out, r.ErrorCode+": "+r.ErrorDescription) }
 	for _, item := range r.Tracks { if item.ErrorCode != "" { out = append(out, item.ErrorCode+": "+item.ErrorDescription) } }
 	return out
 }
 func (r DataChannelsResponse) ResourceErrors() []string {
 	var out []string
+	if r.ErrorCode != "" { out = append(out, r.ErrorCode+": "+r.ErrorDescription) }
 	for _, item := range r.DataChannels { if item.ErrorCode != "" { out = append(out, item.ErrorCode+": "+item.ErrorDescription) } }
 	return out
 }
