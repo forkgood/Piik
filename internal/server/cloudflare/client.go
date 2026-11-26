@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -38,8 +39,9 @@ func New(appID, secret string, options ...Option) (*Client, error) {
 		http: &http.Client{Timeout: 20 * time.Second}}
 	for _, option := range options { option(c) }
 	u, err := url.Parse(c.baseURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return nil, errors.New("Cloudflare Realtime API URL must be an HTTPS origin or base path")
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
+		(u.Scheme != "https" && !(u.Scheme == "http" && isLoopbackHost(u.Hostname()))) {
+		return nil, errors.New("Cloudflare Realtime API URL must use HTTPS (HTTP is allowed only for loopback tests)")
 	}
 	return c, nil
 }
@@ -78,6 +80,7 @@ type SessionInfo struct {
 	SessionID string `json:"sessionId,omitempty"`
 	Tracks []struct { Location string `json:"location"`; MID string `json:"mid"`; TrackName string `json:"trackName"`; Status string `json:"status"` } `json:"tracks"`
 }
+type TrackReference struct { MID string `json:"mid"` }
 type DataChannel struct {
 	Location string `json:"location"`
 	DataChannelName string `json:"dataChannelName"`
@@ -86,6 +89,12 @@ type DataChannel struct {
 }
 type DataChannelResult struct { DataChannel DataChannel `json:"dataChannel"`; ID int `json:"id,omitempty"`; ErrorCode string `json:"errorCode,omitempty"`; ErrorDescription string `json:"errorDescription,omitempty"` }
 type DataChannelsResponse struct { SessionDescription *SessionDescription `json:"sessionDescription,omitempty"`; RequiresImmediateRenegotiation bool `json:"requiresImmediateRenegotiation,omitempty"`; DataChannels []DataChannelResult `json:"dataChannels,omitempty"` }
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") { return true }
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
 
 func (c *Client) endpoint(path string) string { return c.baseURL + "/apps/" + url.PathEscape(c.appID) + path }
 func (c *Client) do(ctx context.Context, method, path string, input, output any) error {
@@ -155,7 +164,14 @@ func (c *Client) GetSession(ctx context.Context, sessionID string) (SessionInfo,
 
 func (c *Client) CloseTracks(ctx context.Context, sessionID string, mids []string) error {
 	if sessionID == "" || len(mids) == 0 { return errors.New("sessionId and at least one mid are required") }
-	return c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/tracks/close", struct { Tracks []struct { MID string `json:"mid"` } `json:"tracks"` }{func() []struct { MID string `json:"mid"` } { out:=make([]struct{MID string `json:"mid"`},0,len(mids)); for _, mid:=range mids { out=append(out,struct{MID string `json:"mid"`}{mid}) }; return out }()}, nil)
+	tracks := make([]TrackReference, 0, len(mids))
+	for _, mid := range mids {
+		if mid == "" { return errors.New("track mid must not be empty") }
+		tracks = append(tracks, TrackReference{MID: mid})
+	}
+	return c.do(ctx, http.MethodPut, "/sessions/"+url.PathEscape(sessionID)+"/tracks/close", struct {
+		Tracks []TrackReference `json:"tracks"`
+	}{tracks}, nil)
 }
 
 func (c *Client) EstablishDataChannel(ctx context.Context, sessionID, name string) (DataChannelsResponse, error) {
